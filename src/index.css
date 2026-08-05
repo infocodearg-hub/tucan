@@ -1436,11 +1436,16 @@
   }
 }
 
-/* ─── Ticket imprimible (VentaExitosaModal) ───────────────────────────────── */
+/* ─── Ticket imprimible (VentaExitosaModal) ─────────────────────────────────
+   #print-ticket-root es un nodo hermano de #root (portal, ver VentaExitosaModal.jsx),
+   invisible en pantalla. Al imprimir se oculta #root entero (display:none —
+   cero alto, no genera páginas de más) y se muestra solo el ticket, que
+   pagina solo si el pedido es realmente largo. */
+#print-ticket-root { display: none; }
 @media print {
-  body * { visibility: hidden; }
-  #ticket-imprimible, #ticket-imprimible * { visibility: visible; }
-  #ticket-imprimible { position: absolute; inset: 0; padding: 24px; }
+  #root { display: none !important; }
+  #print-ticket-root { display: block !important; }
+  @page { margin: 8mm; }
 }
 
 /* ─── POS grid (Cantina): catálogo + ticket + historial ───────────────────── */

@@ -283,8 +283,9 @@ export default function CajaCantina() {
             </div>
           </div>
 
-          {/* Product Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 10 }}>
+          {/* Product Cards — minmax bajo a propósito: en mobile entran 3 por fila
+              en vez de 2 gigantes, mismo criterio de densidad que el resto de la app */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))', gap: 8 }}>
             {filteredProducts.length === 0 && (
               <div style={{ gridColumn: '1/-1', padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                 No hay productos en esta categoría.
@@ -299,54 +300,54 @@ export default function CajaCantina() {
                   onClick={() => !sinStock && addToCart(prod)}
                   className={sinStock ? '' : 'product-card-hoverable'}
                   style={{
-                    padding: '12px', borderRadius: 14,
+                    padding: '10px', borderRadius: 12,
                     background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
                     cursor: sinStock ? 'not-allowed' : 'pointer',
                     display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                    gap: 10, opacity: sinStock ? 0.5 : 1,
+                    gap: 8, opacity: sinStock ? 0.5 : 1,
                   }}
                 >
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                       <div style={{
-                        width: 36, height: 36, borderRadius: 10,
+                        width: 28, height: 28, borderRadius: 8,
                         background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.25)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <ProdIcon size={18} color="var(--green)" />
+                        <ProdIcon size={14} color="var(--green)" />
                       </div>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setProductModal(prod); }}
                         aria-label={`Editar ${prod.nombre}`}
                         style={{
-                          width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                          width: 20, height: 20, borderRadius: 6, flexShrink: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           background: 'transparent', border: '1px solid var(--border-dim)',
                           color: 'var(--text-muted)', cursor: 'pointer',
                         }}
                       >
-                        <Pencil size={11} />
+                        <Pencil size={10} />
                       </button>
                     </div>
-                    <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)', marginBottom: 3, lineHeight: 1.2 }}>
+                    <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.76rem', color: 'var(--text-primary)', marginBottom: 3, lineHeight: 1.25 }}>
                       {prod.nombre}
                     </h4>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                    <p style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
                       {CATEGORIAS[prod.categoria] ?? prod.categoria}
                       {prod.controlaStock ? ` · ${prod.stock}u` : ''}
                     </p>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border-dim)' }}>
-                    <span className="font-heading num" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid var(--border-dim)' }}>
+                    <span className="font-heading num" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '0.8rem' }}>
                       {formatARS(prod.precio)}
                     </span>
                     <div style={{
-                      width: 26, height: 26, borderRadius: 8,
+                      width: 22, height: 22, borderRadius: 7,
                       background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'var(--green)', fontWeight: 900, fontSize: '0.85rem',
+                      color: 'var(--green)', fontWeight: 900, fontSize: '0.78rem',
                     }}>
                       +
                     </div>
