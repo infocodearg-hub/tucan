@@ -3,7 +3,6 @@ import {
   Building2, 
   PlusCircle, 
   ShoppingBag, 
-  Bot, 
   Bell, 
   ChevronDown,
   Settings,
@@ -12,23 +11,24 @@ import {
   HelpCircle,
   BarChart3,
   Clock,
-  Zap
 } from 'lucide-react';
-import { COMPLEX_INFO } from '../data/mockData';
+import { useConfig, useCanchasActivas, useUIActions } from '../store';
+import { nowTimeWithSeconds } from '../lib/date';
 
-export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, setActiveTab }) {
-  const [time, setTime] = useState(
-    new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
-  );
+export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, setActiveTab, onLogout }) {
+  const config      = useConfig();
+  const canchas     = useCanchasActivas();
+  const { setActiveTab: storeSetActiveTab } = useUIActions();
+  const navSetTab   = setActiveTab ?? storeSetActiveTab;
+
+  const [time, setTime] = useState(nowTimeWithSeconds);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifOpen,   setNotifOpen]   = useState(false);
   const profileRef = useRef(null);
-  const notifRef = useRef(null);
+  const notifRef   = useRef(null);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTime(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }));
-    }, 1000);
+    const timer = setInterval(() => setTime(nowTimeWithSeconds()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -104,11 +104,11 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
           <Building2 size={15} color="var(--green)" style={{ flexShrink: 0 }} />
           <div className="min-w-0">
             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {COMPLEX_INFO.name}
+              {config?.complejo?.nombre ?? 'Complejo'}
             </span>
           </div>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0 }}>
-            {COMPLEX_INFO.canchas.length} canchas
+            {canchas.length} canchas
           </span>
           <ChevronDown size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
         </button>
@@ -221,19 +221,23 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
           {profileOpen && (
             <div className="dropdown-menu" style={{ right: 0, top: 'calc(100% + 8px)', minWidth: 220 }}>
               <div style={{ padding: '10px 12px 10px', borderBottom: '1px solid var(--border-dim)', marginBottom: 4 }}>
-                <p style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.88rem' }}>El Maracaná</p>
-                <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 1 }}>Administrador del Complejo</p>
+                <p style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.88rem' }}>
+                  {config?.complejo?.nombre ?? 'Complejo'}
+                </p>
+                <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 1 }}>
+                  {config?.acceso?.nombreMostrado ?? 'Administrador'}
+                </p>
               </div>
 
-              <button className="dropdown-item" onClick={() => { setActiveTab('configuracion'); setProfileOpen(false); }}>
+              <button className="dropdown-item" onClick={() => { navSetTab('configuracion'); setProfileOpen(false); }}>
                 <Settings size={15} color="var(--text-muted)" />
                 Configuración
               </button>
-              <button className="dropdown-item" onClick={() => { setActiveTab('reportes'); setProfileOpen(false); }}>
+              <button className="dropdown-item" onClick={() => { navSetTab('reportes'); setProfileOpen(false); }}>
                 <BarChart3 size={15} color="var(--text-muted)" />
                 Reportes & Finanzas
               </button>
-              <button className="dropdown-item" onClick={() => { setActiveTab('vista_publica'); setProfileOpen(false); }}>
+              <button className="dropdown-item" onClick={() => { navSetTab('vista_publica'); setProfileOpen(false); }}>
                 <Globe size={15} color="var(--text-muted)" />
                 Vista Pública Web
               </button>
@@ -244,10 +248,10 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
 
               <div className="dropdown-divider" />
 
-              <div className="dropdown-item danger">
+              <button className="dropdown-item danger" onClick={() => { if (onLogout) onLogout(); else { navSetTab('grilla'); setProfileOpen(false); } }}>
                 <LogOut size={15} />
                 Cerrar Sesión
-              </div>
+              </button>
             </div>
           )}
         </div>

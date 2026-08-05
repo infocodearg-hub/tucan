@@ -11,6 +11,7 @@ import VistaPublicaJugador from './components/VistaPublicaJugador';
 import NuevoTurnoModal from './components/NuevoTurnoModal';
 import DetalleTurnoModal from './components/DetalleTurnoModal';
 import ToastViewport from './components/ToastViewport';
+import LoginScreen, { hasActiveSession, clearSession } from './components/LoginScreen';
 
 import {
   useAppState,
@@ -47,6 +48,30 @@ const categoriaKeyFromLegacyLabel = (label) =>
   Object.keys(CATEGORIAS).find((k) => CATEGORIAS[k] === label) ?? 'bebidas';
 
 export default function App() {
+  // ─── Login gate ───
+  const [isLoggedIn, setIsLoggedIn] = useState(() => hasActiveSession());
+
+  const handleLogin = () => setIsLoggedIn(true);
+
+  const handleLogout = () => {
+    clearSession();
+    setIsLoggedIn(false);
+  };
+
+  // Mostrar login si no hay sesión
+  if (!isLoggedIn) {
+    return (
+      <>
+        <LoginScreen onLogin={handleLogin} />
+        <ToastViewport />
+      </>
+    );
+  }
+
+  return <AppInner onLogout={handleLogout} />;
+}
+
+function AppInner({ onLogout }) {
   const state = useAppState();
   const { activeTab } = state.ui;
   const { setActiveTab } = useUIActions();
@@ -231,6 +256,7 @@ export default function App() {
         onOpenCantina={() => setActiveTab('cantina')}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        onLogout={onLogout}
       />
 
       {/* ─── Layout ─── */}
