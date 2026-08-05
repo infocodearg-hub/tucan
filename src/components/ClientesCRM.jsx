@@ -1,0 +1,189 @@
+import React, { useState } from 'react';
+import { Users, Search, Phone, MessageSquare, TrendingUp, Star, AlertTriangle, CheckCircle2, ChevronRight, Award, ShieldCheck, Crown, UserPlus } from 'lucide-react';
+import NuevoClienteModal from './NuevoClienteModal';
+
+const SCORE_COLOR = (score) => {
+  const n = parseFloat(score);
+  if (n >= 9) return { color: '#00E676', bg: 'rgba(0,230,118,0.1)', border: 'rgba(0,230,118,0.3)' };
+  if (n >= 7) return { color: '#00B0FF', bg: 'rgba(0,176,255,0.1)', border: 'rgba(0,176,255,0.3)' };
+  return { color: '#FF4F4F', bg: 'rgba(255,79,79,0.1)', border: 'rgba(255,79,79,0.3)' };
+};
+
+const getBadgeComponent = (badgeText) => {
+  if (badgeText.includes('VIP')) return { text: 'Jugador VIP', icon: Crown, color: '#FFB300', bg: 'rgba(255,179,0,0.12)' };
+  if (badgeText.includes('Capitán')) return { text: 'Capitán Fijo', icon: ShieldCheck, color: '#00B0FF', bg: 'rgba(0,176,255,0.12)' };
+  if (badgeText.includes('Fiel')) return { text: 'Cliente Fiel', icon: Award, color: '#00E676', bg: 'rgba(0,230,118,0.12)' };
+  return { text: 'Ojo: Cancela tarde', icon: AlertTriangle, color: '#FF4F4F', bg: 'rgba(255,79,79,0.12)' };
+};
+
+export default function ClientesCRM({ clients, onAddClient }) {
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+
+  const filtered = clients.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search)
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Header */}
+      <div className="section-header">
+        <div>
+          <h1 className="section-title">Clientes & Jugadores</h1>
+          <p className="section-subtitle">Base de datos CRM · Historial, scoring y comunicación directa</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              placeholder="Buscar cliente..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="form-input"
+              style={{ paddingLeft: 36, width: 200, padding: '8px 12px 8px 36px' }}
+            />
+          </div>
+          <button 
+            onClick={() => setIsAddClientOpen(true)}
+            className="btn-primary"
+            style={{ padding: '8px 14px', fontSize: '0.82rem', gap: 6 }}
+          >
+            <UserPlus size={15} style={{ color: '#040A06' }} /> + Nuevo Cliente
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+        {[
+          { label: 'Total Clientes', value: clients.length, color: '#00E676', sub: 'en base de datos' },
+          { label: 'VIP / Regulares', value: clients.filter(c => c.score >= '9').length, color: '#00B0FF', sub: 'score ≥ 9.0' },
+          { label: 'Atención Especial', value: clients.filter(c => c.cancellations > 1).length, color: '#FFB300', sub: 'cancelaciones' },
+          { label: 'Total Recaudado', value: `$${(clients.reduce((s,c) => s + c.totalSpent, 0)/1000).toFixed(0)}k`, color: '#C8FF00', sub: 'entre todos' },
+        ].map((s, i) => (
+          <div key={i} style={{
+            padding: '14px 16px', borderRadius: 12, background: 'var(--bg-card)', border: '1px solid var(--border-dim)'
+          }}>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{s.label}</p>
+            <p className="font-heading" style={{ fontSize: '1.5rem', fontWeight: 900, color: s.color, lineHeight: 1, marginBottom: 4 }}>{s.value}</p>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Client Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+        {filtered.map(client => {
+          const scoreStyle = SCORE_COLOR(client.score);
+          const badgeMeta = getBadgeComponent(client.badge);
+          const BadgeIcon = badgeMeta.icon;
+
+          return (
+            <div
+              key={client.id}
+              onClick={() => setSelected(selected?.id === client.id ? null : client)}
+              style={{
+                padding: '18px', borderRadius: 14,
+                background: 'var(--bg-card)', border: `1px solid ${selected?.id === client.id ? 'rgba(0,176,255,0.4)' : 'var(--border-dim)'}`,
+                cursor: 'pointer', transition: 'all 0.2s ease',
+                boxShadow: selected?.id === client.id ? '0 0 20px rgba(0,176,255,0.12)' : 'none'
+              }}
+            >
+              {/* Name row */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                    background: 'linear-gradient(140deg, rgba(0,176,255,0.15), rgba(0,176,255,0.05))',
+                    border: '1px solid rgba(0,176,255,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 900, color: '#00B0FF', fontSize: '0.88rem', fontFamily: 'Outfit, sans-serif'
+                  }}>
+                    {client.name.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="font-heading" style={{ fontWeight: 800, color: '#fff', fontSize: '0.95rem' }}>{client.name}</h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{client.phone}</p>
+                  </div>
+                </div>
+                <div style={{
+                  padding: '4px 10px', borderRadius: 99,
+                  background: scoreStyle.bg, border: `1px solid ${scoreStyle.border}`,
+                  color: scoreStyle.color, fontSize: '0.8rem', fontWeight: 900, fontFamily: 'Outfit, sans-serif'
+                }}>
+                  {client.score}
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
+                gap: 8, padding: '10px', borderRadius: 10,
+                background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
+                marginBottom: 12
+              }}>
+                {[
+                  { label: 'Partidos', value: client.matchesPlayed, color: '#fff' },
+                  { label: 'Cancelaciones', value: client.cancellations, color: client.cancellations > 1 ? '#FF4F4F' : '#00E676' },
+                  { label: 'Total', value: `$${(client.totalSpent/1000).toFixed(0)}k`, color: '#00E676' },
+                ].map((s, i) => (
+                  <div key={i} style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</p>
+                    <p className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Badge & Last match */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '3px 8px', borderRadius: 99,
+                  background: badgeMeta.bg, border: `1px solid ${badgeMeta.color}44`,
+                  color: badgeMeta.color, fontSize: '0.72rem', fontWeight: 800
+                }}>
+                  <BadgeIcon size={12} color={badgeMeta.color} />
+                  <span>{badgeMeta.text}</span>
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {client.lastMatch}
+                </span>
+                <a
+                  href={`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '5px 10px', borderRadius: 8, flexShrink: 0,
+                    background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)',
+                    color: '#00E676', fontSize: '0.74rem', fontWeight: 700,
+                    textDecoration: 'none', transition: 'all 0.15s ease'
+                  }}
+                >
+                  <MessageSquare size={12} /> WA
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          No se encontraron clientes con ese criterio.
+        </div>
+      )}
+
+      {/* Modal para crear cliente */}
+      <NuevoClienteModal
+        isOpen={isAddClientOpen}
+        onClose={() => setIsAddClientOpen(false)}
+        onAddClient={onAddClient}
+      />
+    </div>
+  );
+}
