@@ -1,11 +1,19 @@
 # TuCan — Handoff para continuar el trabajo
 
-Estado real del repo al momento de escribir esto: **Fases 0, 0.5, 1 y 2 completas y
-commiteadas.** Build limpio, 70/70 tests verdes, verificado en Chrome real.
-Nada sin commitear. Podés arrancar de acá con otra IA o vos mismo.
+Estado real del repo al momento de escribir esto: **Fases 0 a 4 completas +
+CRUD total (clientes, productos, turnos fijos, turnos) + fixes de
+responsive.** Build limpio, 70/70 tests verdes, verificado con Puppeteer
+real (no solo compila — se probó crear/editar/borrar/deshacer de punta a
+punta en el navegador). Nada sin commitear.
 
 ```bash
 git log --oneline
+# 494bae5 feat: editar turno desde el detalle + modal en vivo
+# e130c67 feat: editar turnos fijos + confirmacion y deshacer al borrar
+# 3c59da0 feat: editar y borrar productos y clientes (CRUD completo)
+# b25647e fix: overflow horizontal en mobile (Cantina, Clientes) + Reportes
+# 8bcdfe1 feat(fase-3+4): DateNav + GrillaTurnos live + Login + ConfirmDialog
+# 747b54d docs: actualizar HANDOFF con estado real Fase 2 completa
 # 44407ac feat(fase-2): TurnosFijos + CajaCantina + Configuracion leen del store
 # 1976579 feat(fase-1): store central con persistencia en localStorage
 # 7f9cdca feat(fase-0.5): nuevo sistema de diseno Deep Pitch
@@ -13,231 +21,202 @@ git log --oneline
 # de537b8 chore: snapshot inicial antes del pulido
 
 npm install
-npm run dev              # http://localhost:5173
-npm test                 # vitest, 70 tests
+npm run dev              # http://localhost:5173  (login demo: admin / tucan)
+npx vitest run           # 70 tests
 npm run build             # debe compilar sin error
-node tools/shot.mjs       # capturas con Chrome headless + chequeo de overflow
-node tools/test-persist.mjs   # test end-to-end: crear turno -> F5 -> persiste
+npx oxlint src            # 17 warnings preexistentes, ninguno bloqueante
+node tools/shot.mjs        # capturas Chrome headless + chequeo de overflow
+node tools/test-persist.mjs   # test e2e de persistencia (crear turno -> F5 -> persiste)
 ```
 
 **IMPORTANTE — `npm run lint` roto por un hook externo (`rtk`)**, no por el
 proyecto. Usar `npx oxlint src` directo.
+
+**Patrón para probar cosas en el navegador con Puppeteer sin loguearte a
+mano:** `page.evaluateOnNewDocument(() => localStorage.setItem('tucan_session_v1', JSON.stringify({loggedIn:true, ts:Date.now()})))`
+antes del primer `page.goto` — salta el `LoginScreen`. `tools/shot.mjs` ya
+lo hace. Para un test limpio desde la demo semilla, sumar
+`localStorage.removeItem('tucan:state:v1')` en el mismo `evaluateOnNewDocument`.
 
 ---
 
 ## Lo que YA está hecho
 
 ### Fase 0 — Limpieza y base
-- Git inicializado, `.gitignore` real, 4 commits.
-- Borrados 14 componentes huérfanos + 2MB de assets.
-- `oxlint` + `prettier` + `vitest` instalados y configurados.
-- `src/lib/` completo: `date.js`, `pricing.js`, `format.js`, `phone.js`,
-  `whatsapp.js`, `status.js`, `catalog.js`, `validate.js`, `id.js`. 47 tests.
+Git inicializado, 14 componentes huérfanos + 2MB de assets borrados,
+`oxlint`+`prettier`+`vitest` instalados, `src/lib/` completo (`date.js`,
+`pricing.js`, `format.js`, `phone.js`, `whatsapp.js`, `status.js`,
+`catalog.js`, `validate.js`, `id.js`). 47 tests.
 
 ### Fase 0.5 — Sistema de diseño
-- Tipografía: **Archivo** (display) + **Instrument Sans** (UI) + **Geist Mono**
-  (toda cifra, clase `.num`).
-- `src/index.css` reescrito: tokens en `@theme` (Tailwind v4), colores
-  semánticos (pagado=verde, señado=ámbar, fijo=violeta, bloqueado=rojo,
-  bot=cian), glow solo en `.btn-primary`.
-- `--nav-h` centraliza la altura del navbar (arregla el desfase sidebar).
-- Modales → bottom-sheet bajo 640px. `viewport-fit=cover` para iOS.
-- Clases fantasma definidas: `.toggle-switch`/`.toggle-slider`,
-  `.input-icon-wrap`/`.input-icon`, `.animate-enter`, `.badge-available`, etc.
-- 264 hex hardcodeados reemplazados por tokens.
+Tipografía Archivo (display) + Instrument Sans (UI) + Geist Mono (toda
+cifra, clase `.num`). `src/index.css` reescrito con tokens `@theme`
+(Tailwind v4), colores semánticos, `--nav-h` centralizado, modales →
+bottom-sheet bajo 640px, breakpoints solo `min-width`.
 
 ### Fase 1 — Store central + persistencia
-- `src/store/` completo con 8 slices, `crossSlice.js`, `selectors.js`,
-  `hooks.js`, `actions.js`, `migrations.js`, `schema.js`.
-- `src/data/seed.js` normaliza fixtures a modelo real (FKs reales, fechas ISO
-  rebasadas a hoy, `pagos[]` en vez de `depositPaid` escalar, cantina como
-  `Sale` con `bookingId`, score numérico).
-- `src/store/legacyAdapter.js`: capa transitoria para `GrillaTurnos`,
-  `NuevoTurnoModal`, `DetalleTurnoModal`, `ClientesCRM` (se borra en Fase 5).
-- `App.jsx` lee todo del store. `main.jsx` envuelve con `<StoreProvider>`.
-- Toast con cola real (máx 3), timer propio por item.
-- 70 tests verdes.
+`src/store/` completo (8 slices, `crossSlice.js`, `selectors.js`,
+`hooks.js`, `actions.js`, `migrations.js`, `schema.js`). `src/data/seed.js`
+normaliza los fixtures viejos al modelo real (FKs, fechas ISO, `pagos[]`,
+score numérico). `src/store/legacyAdapter.js` es la única pieza transitoria
+que queda — traduce el modelo nuevo a la forma vieja para los 3
+componentes que todavía no se reescribieron (ver más abajo).
 
-### Fase 2 — Matar el estado huérfano ✅ (completada)
+### Fase 2 — Estado huérfano eliminado
+`TurnosFijos`, `CajaCantina`, `ConfiguracionComplejo` leen y escriben del
+store directo, sin imports de `mockData.js`.
 
-**`TurnosFijos.jsx`** — reescrito completo:
-- Lee `useTurnosFijos()` + `useCanchasActivas()` + `useConfig()` del store.
-- `useTurnoFijoActions().crear()` / `.eliminar()` / `.marcarMes()`.
-- `diaSemana` numérico ISO con `DIAS_SEMANA[n].plural` para el label.
-- `canchaId` FK real; selector de cancha con `useCanchasActivas()`.
-- Precio mensual derivado con `precioMensualFijo(tf, cancha, ocurrencias, nightFrom)`
-  + `occurrencesInMonth(mesKey, diaSemana)` de `lib/date.js`.
-- Estado mensual `tf.estadoPorMes[mesKey]` con valores `'al_dia'|'pendiente'|'deuda'`.
-- Botón Cobrar llama `turnoFijoActions.marcarMes(id, mesKey, 'al_dia')`.
-- Empty state cuando no hay turnos fijos.
-- Borrado con toast de confirmación.
-- NO importa nada de `mockData.js`.
+### Fase 3 — Fechas reales
+`DateNav.jsx`: chevrones + picker nativo + tira de 7 días con punto de
+ocupación (`useDayKpis`). `GrillaTurnos` conectado a `ui.selectedDate`,
+KPIs reales, turnos fijos proyectados aparecen en el día correcto.
 
-**`CajaCantina.jsx`** — reescrito completo:
-- Lee `useProducts()`, `useSales()`, `useBookingsForDate(selectedDate)`,
-  `useSelectedDate()` del store.
-- `useSaleActions().registrar()` descuenta stock automáticamente (crossSlice).
-- `useProductActions().crear()` para nuevo producto.
-- `iconForProduct(product)` de `lib/catalog.js` reemplaza el `PRODUCT_ICONS`
-  local roto (`prod_stella` para un producto llamado `prod_cerveza`).
-- Historial de ventas real desde el store (sobrevive al F5, no hardcodeado).
-- Selector "Asignar a turno" lee bookings reales de la fecha.
-- Recaudación del día con `useCajaDelDia(selectedDate)`.
-- Items del carrito con nombres localizados del store (`product.nombre`).
-- NO importa nada de `mockData.js`.
+### Fase 4 — Login + ConfirmDialog + CRUD total ✅
 
-**`ConfiguracionComplejo.jsx`** — reescrito completo:
-- Lee `useConfig()` y escribe con `useConfigActions().actualizar(patch)`.
-- `useCanchaActions().actualizar(canchaId, { precioDia, precioNoche })` para
-  precios por cancha (inputs controlados, no decorativos).
-- `ToggleRow` ya no tiene `useState` propio: lee y escribe
-  `config.integraciones.*` directamente.
-- `senaMinimaPorcentaje` conectado a `config.pagos.senaMinimaPorcentaje`.
-- Botón Guardar llama al store en vez de un `setSaved(true)` cosmético.
-- Toast de éxito al guardar.
-- NO importa nada de `mockData.js`.
+- **`LoginScreen.jsx`**: gate local contra `config.acceso` (usuario `admin`
+  / contraseña `tucan`), sesión en una clave de `localStorage` separada del
+  store (`tucan_session_v1` — `ui` no se persiste a propósito).
+- **`ConfirmDialog.jsx` + `useConfirm()`**: reemplaza todo `window.confirm()`
+  del proyecto. Promesa async, `role="alertdialog"`. **No tiene** portal ni
+  focus-trap todavía (ver "Lo que falta").
+- **CRUD completo en las 4 entidades editables:**
+  - **Productos** (`CajaCantina.jsx` + `NuevoProductoModal.jsx` dual-mode):
+    crear, editar (lápiz en cada card), borrar (dentro del modal de
+    edición) con confirm + toast "Deshacer".
+  - **Clientes** (`ClientesCRM.jsx` + `NuevoClienteModal.jsx` dual-mode):
+    crear, editar, borrar (lápiz/tacho en cada card) con confirm + deshacer.
+    El picker de "categoría/badge inicial" que existía en el alta se
+    **eliminó** — las etiquetas del CRM se derivan del comportamiento real
+    (`badgeForClient`), elegir una a mano nunca tuvo efecto.
+  - **Turnos fijos** (`TurnosFijos.jsx`): ya tenía crear/borrar (Fase 2), se
+    agregó **editar** (mismo patrón dual-mode) y el borrar ahora pasa por
+    `ConfirmDialog` + deshacer (antes ejecutaba directo al click).
+  - **Turnos individuales** (`DetalleTurnoModal.jsx`): ya tenía
+    saldar/cancelar/cargar-cantina/WhatsApp; se agregó **editar** (nombre,
+    teléfono, notas) con un formulario inline dentro del mismo modal.
+- **Patrón dual-mode usado en todos lados**: un solo componente maneja
+  crear y editar (`producto`/`cliente`/`tf` = `null` en alta, objeto en
+  edición). Evita la deriva que ya pasó una vez con turnos fijos
+  (`'21:00 hs'` vs `'21:00'` en dos componentes distintos).
+- **Toast "Deshacer"**: `useToast().info(msg, { action: { label, onClick } })`
+  — el shape correcto es `{ action: {...} }`, NO `{ label, onClick }` sueltos
+  (`Toast.jsx` lee específicamente la prop `action`). Cada borrado usa
+  `xxxActions.restaurar(objetoBorrado)`, que ya existía en el store.
 
-**App.jsx** — limpio de props a Cantina y Configuración:
-- `CajaCantina` ya no recibe `products` ni `onAddProduct` como props.
-- `ConfiguracionComplejo` ya no recibe props.
-- Solo `TurnosFijos` sigue sin props (ya autónomo).
+### Bugs reales encontrados y arreglados en esta sesión
+(más allá de los ya documentados en el plan original y en el historial de
+commits anterior)
 
-**Criterio de salida verificado:**
-```bash
-grep -rn "mockData" src/components/   # resultado: 0
-```
-
-### Bugs reales encontrados y arreglados en el camino
-(más allá de los documentados en el plan original)
-1. `StoreProvider` explotaba en primer F5: `ui` no se persiste pero `init()`
-   no mergeaba con un `ui` fresco. Arreglado en `StoreProvider.jsx`.
-2. Badge de cliente viajaba como string; `getBadgeComponent` adivinaba por
-   substring — las etiquetas nuevas no calzaban. Arreglado: badge viaja como
-   objeto `{key,label,variant}`.
-3. `score >= '9'` (comparación de string) en `ClientesCRM.jsx`. Arreglado con
-   `parseFloat(c.score)`.
-4. `NuevoTurnoModal` montado siempre: clickear un slot mostraba la cancha/hora
-   del slot anterior. Arreglado con montaje condicional + `key`.
-5. **Fase 2:** El intento anterior de reescribir `TurnosFijos` rompía el build
-   porque el import de `useCanchasActivas` se hacía desde
-   `'../store/hooks'` (directo al archivo) en vez de `'../store'` (la
-   superficie pública). SIEMPRE importar solo de `'../store'` — `index.js`
-   re-exporta todo, cualquier import directo de `slices/*`, `hooks.js`,
-   `reducer.js` puede generar ciclos dependiendo del bundler.
-6. **Fase 2:** `CajaCantina` tenía `PRODUCT_ICONS['prod_stella']` para un
-   producto cuyo id real es `'prod_cerveza'` → ícono siempre `undefined`,
-   fallback a `GlassWater` (vaso de agua) para la cerveza. Arreglado:
-   `iconForProduct(product)` de `lib/catalog.js` usa `product.iconKey`.
+1. **Overflow horizontal en Cantina a cualquier ancho móvil.** La grilla
+   POS (`1fr 340px` fijo) nunca colapsaba a una columna, y el ítem de grid
+   "Left: Catálogo" no tenía `minWidth:0` — **los ítems de CSS Grid no se
+   achican por debajo de su contenido mínimo por default**, así que una
+   fila de tabs sin wrap reventaba el track y desbordaba la página entera
+   ~30px a la derecha. Fix: clase `.pos-grid` (1 columna hasta 1100px) +
+   `minWidth:0` en los dos ítems del grid. Este patrón (`minWidth:0` en
+   cualquier ítem de grid/flex que contenga texto sin wrap) es la causa
+   más probable de overflow futuro — revisarlo primero.
+2. **ClientesCRM desbordaba a 320-360px**: buscador `width:200` fijo +
+   botón "Nuevo Cliente" en una fila sin `flexWrap`, dentro de
+   `.section-header` que en mobile usa `align-items:flex-start` (no
+   `stretch`) — el contenedor no se ajustaba al viewport. Fix: `flexWrap` +
+   buscador con `flex:1 1 160px`.
+3. **Gráfico de "Ocupación Semanal" en Reportes con barras invisibles.**
+   `height: ${pct}%` se resolvía contra un padre sin altura definida
+   (`auto`) — una altura porcentual sobre un padre sin altura fija se
+   resuelve como `auto`, así que las barras siempre caían al mínimo de
+   8px. Fix: envoltorio intermedio con `flex:1` dentro del contenedor de
+   110px, para que el porcentaje tenga contra qué resolverse.
+4. **`DetalleTurnoModal` mostraba una foto congelada.** `selectedBookingDetail`
+   en `App.jsx` se seteaba una vez al hacer click y nunca se releía —
+   saldar un turno o cargar cantina no se veía reflejado en el modal ya
+   abierto hasta cerrarlo y reabrirlo. Se agregó `liveBookingDetail`, que
+   relee por id desde `bookings` (ya recalculado en cada render) en vez de
+   arrastrar el objeto viejo. Los turnos fijos que se materializan a mitad
+   de una acción (virt_xxx → bkg_yyy) empujan su id nuevo al snapshot para
+   que la relectura los siga encontrando.
+5. El "Complejo El Maracaná" que parecía superpuesto al botón "+ Turno" en
+   capturas de pantalla `fullPage` era **un artefacto de Puppeteer**
+   (elementos `position:sticky`/`fixed` se "fantasman" en capturas
+   full-page con scroll simulado), no un bug real — verificado con
+   screenshot de viewport real. Si algo se ve mal solo en un `fullPage`
+   pero no en un screenshot normal, sospechar esto antes de perseguir un
+   bug que no existe.
 
 ---
 
-## Lo que FALTA — Fases 3 a 7
+## Lo que FALTA — Fase 5 en adelante
 
-### Fase 3 — Fundación de fechas (siguiente paso)
+### Fase 5 — Migración de estilos inline + borrar legacyAdapter (la más larga)
 
-`ui.selectedDate` ya existe en el store (inicializa en `todayISO()`).
-Falta la UI: un componente `DateNav`.
+**3 componentes siguen sin migrar al store directo**, hablan a través de
+`src/store/legacyAdapter.js`:
+- `GrillaTurnos.jsx` — recibe `bookings` como prop (shape legacy) desde
+  `App.jsx`.
+- `NuevoTurnoModal.jsx` — **ojo**: además de legacyAdapter, todavía importa
+  `COMPLEX_INFO`/`TIME_SLOTS`/`CANTINA_PRODUCTS` **directo de
+  `data/mockData.js`** para sus selectores de cancha/horario/cantina. Esto
+  significa que si alguien agrega o edita una cancha desde Configuración,
+  el modal de nuevo turno **no lo va a reflejar** — sigue mostrando las 3
+  canchas hardcodeadas de la demo. Es el bug más importante que queda sin
+  tocar; edita canchas desde Configuración y confirmá el síntoma antes de
+  arrancar.
+- `ClientesCRM.jsx` — solo para **lectura** (crear/editar/borrar ya van
+  directo al store desde Fase 4); falta migrar el listado/las stats.
 
-**`src/components/DateNav.jsx`** — crear desde cero:
-- `‹ [📅 Hoy · martes 5 de agosto] ›  [Hoy]`
-- Tira de 7 días (lunes de la semana en curso) con un punto de ocupación
-  (`useDayKpis(fecha).ocupados > 0`).
-- `<input type="date">` nativo detrás de un trigger estilizado (da la rueda
-  del SO en mobile gratis). En desktop mostrar el label formateado.
-- El botón `[Hoy]` llama `useUIActions().setSelectedDate(todayISO())`.
-- Los chevrones `‹ ›` llaman `setSelectedDate(addDays(selectedDate, ±1))`.
-- Usar `formatLongDate(selectedDate)` de `lib/date.js` para el label.
-- Usar `relativeDayLabel(fecha)` para cada celda de la tira de 7 días.
+Orden sugerido: `Navbar`/`Sidebar` (ya bastante migrados) → `GrillaTurnos`
+→ `NuevoTurnoModal` (arreglar el bug de mockData de paso) →
+`DetalleTurnoModal` → `ClientesCRM` → `CajaCantina` (pulido visual, ya
+migrado en datos) → `TurnosFijos` (ídem) → `ReportesAnalytics` →
+`ConfiguracionComplejo` → `VistaPublicaJugador`.
 
-**`GrillaTurnos.jsx`** — conectar el DateNav:
-- Reemplazar las flechas muertas (buscar `ChevronLeft`/`ChevronRight` sin
-  `onClick` — líneas ~213-222 de la versión original).
-- Reemplazar el header hardcodeado `"Hoy, Martes 5 de Agosto 2026"` por
-  `formatLongDate(selectedDate)`.
-- Importar `DateNav` y renderizarlo en el header de la grilla.
-- `GrillaTurnos` ya recibe bookings filtrados por fecha desde `App.jsx`
-  (via `useBookingsForDate(selectedDate)` + adapter) — falta que el `DateNav`
-  cambie el `selectedDate` en el store para que esa lectura actualice.
+Cuando los 4 (`GrillaTurnos`, `NuevoTurnoModal`, `DetalleTurnoModal`,
+`ClientesCRM`) estén migrados: **borrar `src/store/legacyAdapter.js`
+entero** y las importaciones `toLegacyBookings`/`toLegacyClient` en
+`App.jsx` (junto con el `useMemo` que las envuelve y el comentario "Capa de
+compatibilidad"). Hacerlo componente por componente, no los 4 juntos — es
+el cambio de mayor radio de impacto de todo lo que queda.
 
-Turnos fijos proyectados (`esVirtual: true`) ya aparecen en
-`selectBookingsForDate` cuando corresponde — probar navegando a otro día.
-
-### Fase 4 — Infra de modales + CRUD total + login
-
-Nada de esto existe todavía. Hay que crear:
-
-- **`src/components/ui/Modal.jsx`**: portal a `#portal-root` (ya en
-  `index.html`), `role="dialog" aria-modal`, Escape, focus trap, scroll lock,
-  estructura Header/Body/Footer sticky. Todos los modales existentes migran a
-  este shell.
-- **`ConfirmDialog`** + `useConfirm()`: reemplaza el `window.confirm()` que
-  queda en `DetalleTurnoModal.jsx` al cancelar un turno.
-- **`Field`**: wrapper de label/error/hint con `useId()`, reemplaza los
-  `if (!x.trim()) return` silenciosos.
-- **`Select` accesible**: reemplaza `CustomSelect.jsx` (hoy: sin teclado, sin
-  roles ARIA, props CSS inválidos `justify` en vez de `justifyContent` en
-  líneas ~42 y ~101, dropdown se recorta dentro de modal con
-  `overflow-y:auto`).
-- **Editar/borrar** clientes, productos, turnos, turnos fijos: solo existe
-  Crear. Los hooks `.actualizar()` y `.eliminar()` YA existen en
-  `src/store/hooks.js` — falta la UI. Patrón: modales dual-mode
-  (`mode="create"|"edit"`) montados solo cuando abiertos con
-  `key={entity?.id ?? 'new'}`.
-- **Toast con "Deshacer"**: guardar el objeto ANTES de borrar y pasarlo como
-  `action: { label: 'Deshacer', onClick: () => restaurar(obj) }` al toast.
-  `useClientActions().restaurar`, `useProductActions().restaurar`,
-  `useTurnoFijoActions().restaurar` ya existen en el store.
-- **Login local**: `config.acceso` ya existe en el seed
-  (`usuario: 'admin', password: 'tucan'`). Falta `LoginScreen.jsx` y el
-  gate en `App.jsx`. `ui.session` + `useUIActions().setSession()` ya
-  existen. OJO: `ui` no se persiste — si querés que la sesión sobreviva al
-  F5, guardala en una clave propia de `localStorage` separada del store.
-
-### Fase 5 — Migración de estilos inline (la más larga)
-
-Orden sugerido: Navbar/Sidebar → GrillaTurnos → CajaCantina → ClientesCRM →
-TurnosFijos → ReportesAnalytics → ConfiguracionComplejo → VistaPublicaJugador.
-
-Esta es la fase donde:
-- **Se borra `src/store/legacyAdapter.js` entero** y `GrillaTurnos`,
-  `NuevoTurnoModal`, `DetalleTurnoModal`, `ClientesCRM` pasan a consumir el
-  store directo. Es el cambio de mayor riesgo — hacerlo componente por
-  componente, no los 4 juntos.
-- Se arregla la grilla en mobile: pasar a lista vertical por cancha bajo `md`,
-  mantener la matriz con columna de hora `sticky` en desktop.
-- CajaCantina en 769-1100px tiene zona muerta — usar `@container` (Tailwind v4
-  lo soporta nativo) en vez de media queries.
-- Grillas fijas (`repeat(3,1fr)`) pasan a `repeat(auto-fit, minmax(...))`.
+También en esta fase:
+- Grilla en mobile: hoy es una matriz con scroll horizontal (mal en el
+  dispositivo donde se demuestra). Pasar a lista vertical por cancha bajo
+  `md`, mantener la matriz con columna de hora `sticky` en desktop.
+- Grillas fijas (`repeat(3,1fr)` en el picker de método de pago de
+  Cantina, por ejemplo) → `repeat(auto-fit, minmax(...))`.
+- `CustomSelect.jsx` sigue sin teclado ni roles ARIA, y su dropdown se
+  recorta si vive dentro de un modal con `overflow-y:auto` (portalearlo
+  resuelve ambos).
+- `Modal.jsx` shell reusable (portal, Escape, focus-trap, scroll-lock) —
+  hoy cada modal reimplementa `.modal-overlay`/`.modal-content` a mano.
+  `ConfirmDialog` ya usa esas clases pero sin portal/focus-trap; sería el
+  primer candidato a migrar una vez que exista el shell.
 
 Grep gates:
 ```bash
 grep -rn "#[0-9A-Fa-f]\{6\}" src/components/   # debe dar 0
 grep -c "style={{" src/components/*.jsx         # debe bajar a casi 0
+grep -rn "mockData" src/components/             # debe dar 0 (hoy: NuevoTurnoModal.jsx)
 ```
 
-### Fase 6 — Hacer reales las cosas falsas
+### Fase 6 — Hacer reales las cosas que faltan
 
-- `ReportesAnalytics.jsx` es 100% estático (`COURT_DATA`, `CANTINA_TOP`,
-  `WEEK_DATA` hardcodeados). Reescribir para calcular todo desde el store
-  (`useBookings`, `useSales`, `useDayKpis`).
-- `VistaPublicaJugador.jsx`: el flujo de reserva no crea ningún booking real
-  ni abre WhatsApp. Conectar a `useBookingActions().crear()` con
-  `canal: 'web'` + `openWhatsApp()` de `lib/whatsapp.js`.
-- Botones muertos del Navbar: selector de complejo (líneas ~95-115 de
-  `Navbar.jsx`), "Ver todas las notificaciones", "Centro de Ayuda". El
-  selector de complejo debería mostrar `config.complejo.nombre` en vez de
-  `COMPLEX_INFO.name` hardcodeado.
+- `ReportesAnalytics.jsx` sigue con `COURT_DATA`/`CANTINA_TOP`/`WEEK_DATA`
+  hardcodeados (se arregló la presentación — labels truncados, plata sin
+  formatear, barras invisibles — pero los números en sí siguen siendo de
+  mentira). Reescribir para calcular desde `useBookings`/`useSales`/
+  `useDayKpis`.
+- `VistaPublicaJugador.jsx`: el flujo de reserva pública no crea ningún
+  booking real ni abre WhatsApp — solo cambia a una pantalla de éxito.
+  Conectar a `useBookingActions().crear()` con `canal:'web'` +
+  `waLink()` de `lib/whatsapp.js`.
+- Selector de complejo del Navbar y demás botones sin `onClick` que
+  queden tras la Fase 5.
 
 ### Fase 7 — Pulido final
-
-- Empty states en todas las listas (TurnosFijos ya tiene el patrón).
-- `prefers-reduced-motion`: ya en `index.css` global, revisar que ninguna
-  animación nueva lo ignore.
-- Barrido de `focus-visible`.
-- Botón "Reiniciar datos demo": `useStoreMaintenance().reiniciarDemo()` ya
-  existe en el store.
-- Export/import JSON en Configuración.
-- Build de producción final.
+Estados vacíos en listas que no los tengan, `prefers-reduced-motion`
+(ya global en `index.css`, revisar animaciones nuevas), barrido de
+`focus-visible`, botón "Reiniciar datos demo" (`useStoreMaintenance().reiniciarDemo()`
+ya existe en el store), export/import JSON en Configuración.
 
 ---
 
@@ -246,95 +225,66 @@ grep -c "style={{" src/components/*.jsx         # debe bajar a casi 0
 ```
 src/lib/                     utilidades puras — LEER ANTES de reescribir
   date.js                    único lugar donde se permite `new Date`
-                             exporta: todayISO, nowISO, addDays, dayOfWeek,
-                             monthKey, occurrencesInMonth, DIAS_SEMANA,
-                             formatLongDate, formatMediumDate, relativeDayLabel
-  pricing.js                 exporta: precioSlot, precioMensualFijo,
-                             senaSugerida, bookingTotals, isNightSlot
-  format.js                  exporta: formatARS, formatARSCompact, toNumber
-  status.js                  exporta: ESTADO_MES, ESTADO_MES_LABEL,
-                             ESTADO_MES_VARIANT, DIAS_SEMANA (re-export),
-                             badgeForClient, scoreForClient
-  catalog.js                 exporta: PRODUCT_ICONS, iconForProduct,
-                             guessIconKey, CATEGORIAS, CATEGORIA_OPTIONS
-  phone.js / whatsapp.js     exporta: normalizePhone, waLink, plantillas
+  pricing.js / format.js / status.js / catalog.js / phone.js / whatsapp.js
 
 src/store/
   index.js                   superficie pública — importar SOLO de acá
+                              (nunca de 'store/hooks', 'store/slices/*', etc)
   hooks.js                   TODOS los hooks de lectura/escritura
-    useConfig()              → state.config
-    useCanchas()             → state.canchas (todas)
-    useCanchasActivas()      → state.canchas.filter(activa)
-    useProducts()            → state.products
-    useSales()               → state.sales
-    useSalesForBooking(id)   → ventas de un turno
-    useTurnosFijos()         → state.turnosFijos
-    useBookings()            → state.bookings (todos)
-    useBookingsForDate(iso)  → bookings + proyectados para esa fecha
-    useSelectedDate()        → state.ui.selectedDate (ISO string)
-    useDayKpis(iso)          → { ocupados, totalSlots, ocupacionPct, ... }
-    useCajaDelDia(iso)       → { ventas, totalVentas }
-    useToast()               → { success, error, info, dismiss }
-    useUIActions()           → { setActiveTab, setSelectedDate, setSession }
-    useConfigActions()       → { actualizar(patch) }
-    useCanchaActions()       → { crear, actualizar, eliminar }
-    useBookingActions()      → { crear, actualizar, cancelar, eliminar,
-                               registrarPago, quitarPago, materializarFijo }
-    useClientActions()       → { crear, actualizar, eliminar, restaurar }
-    useProductActions()      → { crear, actualizar, eliminar, restaurar }
-    useSaleActions()         → { registrar, anular }
-    useTurnoFijoActions()    → { crear, actualizar, eliminar, restaurar,
-                               cancelarOcurrencia, marcarMes }
-    useStoreMaintenance()    → { reiniciarDemo, importar }
-  selectors.js               selectBookingsForDate (con proyección virtual),
-                             selectIsSlotFree, selectBookingTotals,
-                             selectClientStats, selectClientBadge,
-                             selectDayKpis, selectCajaDelDia
-  actions.js                 catálogo completo de acciones (tipo T.*)
-  legacyAdapter.js           ⚠️ TRANSITORIO — se borra en Fase 5
-  repository/README.md       contrato para el futuro backend
-
-src/data/
-  mockData.js                fixtures crudos — NADIE más lo importa
-                             (solo seed.js lo usa)
-  seed.js                    normalización — LEER si hay dudas de modelo
+  selectors.js                selectBookingsForDate, selectIsSlotFree, etc.
+  legacyAdapter.js             ⚠️ TRANSITORIO — se borra en Fase 5
 
 src/components/
-  GrillaTurnos.jsx           ⚠️ todavía usa legacyAdapter (Fase 5)
-  NuevoTurnoModal.jsx        ⚠️ todavía usa legacyAdapter (Fase 5)
-  DetalleTurnoModal.jsx      ⚠️ todavía usa legacyAdapter (Fase 5)
-                             + window.confirm() sin reemplazar (Fase 4)
-  ClientesCRM.jsx            ⚠️ todavía usa legacyAdapter (Fase 5)
-  TurnosFijos.jsx            ✅ lee del store directo (Fase 2)
-  CajaCantina.jsx            ✅ lee del store directo (Fase 2)
-  ConfiguracionComplejo.jsx  ✅ lee del store directo (Fase 2)
+  GrillaTurnos.jsx            ⚠️ usa legacyAdapter (Fase 5)
+  NuevoTurnoModal.jsx         ⚠️ usa legacyAdapter + importa mockData directo (Fase 5)
+  DetalleTurnoModal.jsx       ⚠️ usa legacyAdapter (Fase 5) — CRUD de edición ya ok
+  ClientesCRM.jsx             ⚠️ lectura vía legacyAdapter (Fase 5) — CRUD ya va directo
+  TurnosFijos.jsx             ✅ store directo, CRUD completo
+  CajaCantina.jsx             ✅ store directo, CRUD completo
+  ConfiguracionComplejo.jsx   ✅ store directo
+  ConfirmDialog.jsx           useConfirm() — sin portal/focus-trap todavía
+  LoginScreen.jsx             gate local, sesión en localStorage aparte
+  DateNav.jsx                 navegación de fecha, ya completo
 
 tools/
-  shot.mjs                   capturas Chrome headless + chequeo overflow
-  test-persist.mjs           test e2e de persistencia (patrón a reusar)
+  shot.mjs                    capturas Chrome headless + chequeo overflow
+                              (ya inyecta sesión para saltar el login)
+  test-persist.mjs            test e2e de persistencia
 ```
 
 ## Reglas que no romper
 
 1. `new Date(...)` solo en `src/lib/date.js`.
-2. Nada derivado se almacena — `bookingTotals()` siempre, nunca un
-   `totalPrice` guardado a mano.
+2. Nada derivado se almacena — `bookingTotals()`/`selectBookingTotals`
+   siempre, nunca un total guardado a mano.
 3. Cantina de un turno = `Sale` con `bookingId`, nunca un array embebido.
-4. Sin `alert()`/`confirm()` nativos (queda uno en `DetalleTurnoModal`).
+4. Sin `alert()`/`confirm()` nativos — usar `useConfirm()`.
 5. Sin hex hardcodeado en componentes — todo por token.
-6. Glow verde solo en `.btn-primary`.
-7. Todo número lleva `.num`.
-8. **Importar del store SOLO desde `'../store'`** (nunca de
-   `'../store/hooks'`, `'../store/slices/*'`, etc.) — puede generar ciclos
-   de imports en Vite.
+6. Todo número lleva `.num`.
+7. **Importar del store SOLO desde `'../store'`** — nunca de
+   `'../store/hooks'`, `'../store/slices/*'`, etc. Rompe el build de forma
+   no obvia (ya pasó una vez).
+8. **Cualquier ítem de grid/flex que contenga texto sin wrap necesita
+   `minWidth:0` explícito** — si no, no se achica por debajo de su
+   contenido mínimo y desborda la página. Causa #1 de overflow en este
+   proyecto, va a volver a pasar si no se tiene presente.
+9. Modales dual-mode (`entidad=null` alta, `entidad=objeto` edición) en vez
+   de dos componentes separados — dos componentes garantizan que los
+   campos diverjan con el tiempo.
+10. Toast con acción: `toast.info(msg, { action: { label, onClick } })` —
+    el objeto va anidado bajo `action`, no suelto.
 
 ## Cómo verificar que algo no se rompió
 
 ```bash
 npx oxlint src              # no "npm run lint" (hook rtk lo intercepta)
 npx vitest run              # 70 tests, deben seguir en verde
-npm run build                # debe compilar
-node tools/shot.mjs          # capturas + overflow check
+npm run build                 # debe compilar
+node tools/shot.mjs           # capturas + overflow check en 390/768/1440 + 320
 ```
 
-Antes de cada commit de fase, correr los 4.
+Para cualquier feature de CRUD nueva, verificar con Puppeteer de verdad
+(no solo que compile) — el patrón usado en esta sesión: abrir la app con
+sesión inyectada, click en los botones reales via `page.evaluate`, y
+chequear el DOM resultante. Ver los commits de esta sesión (`git show
+<hash>` de los últimos 4) si hace falta un ejemplo del patrón completo.
