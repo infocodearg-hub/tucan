@@ -12,7 +12,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Repeat, CheckCircle2, Plus, Phone, User, DollarSign, X,
-  Trash2, AlertCircle,
+  Trash2, Pencil, AlertCircle,
 } from 'lucide-react';
 import {
   useTurnosFijos,
@@ -21,6 +21,7 @@ import {
   useConfig,
   useToast,
 } from '../store';
+import { useConfirm } from './ConfirmDialog';
 import { DIAS_SEMANA, monthKey, occurrencesInMonth, todayISO } from '../lib/date';
 import { precioMensualFijo } from '../lib/pricing';
 import { formatARS, formatARSCompact } from '../lib/format';
@@ -98,12 +99,14 @@ export default function TurnosFijos() {
   const config        = useConfig();
   const tfActions     = useTurnoFijoActions();
   const toast         = useToast();
+  const { confirm, ConfirmDialogMount } = useConfirm();
 
   const mesActual     = monthKey(todayISO());
   const nightFrom     = config?.operacion?.horaNocturnaDesde ?? '19:00';
 
-  // ─── Estado local del modal de alta ─────────────────────────────────────
-  const [showModal,   setShowModal]   = useState(false);
+  // ─── Estado local del modal de alta/edición ─────────────────────────────
+  // modalTf: null (cerrado) | 'new' (alta) | TurnoFijo completo (edición)
+  const [modalTf,      setModalTf]     = useState(null);
   const [teamName,    setTeamName]    = useState('');
   const [captain,     setCaptain]     = useState('');
   const [phone,       setPhone]       = useState('');
@@ -111,6 +114,7 @@ export default function TurnosFijos() {
   const [hora,        setHora]        = useState('21:00');
   const [canchaId,    setCanchaId]    = useState(canchas[0]?.id ?? '');
   const [formError,   setFormError]   = useState('');
+  const isEdit = modalTf && modalTf !== 'new';
 
   // ─── Opciones de cancha para el selector ────────────────────────────────
   const canchaOptions = useMemo(
@@ -138,12 +142,45 @@ export default function TurnosFijos() {
     toast.success(`Abono de ${tf.equipoNombre} marcado como cobrado`);
   };
 
-  const handleDelete = (tf) => {
+  const handleDelete = async (tf) => {
+    const ok = await confirm({
+      title: 'Eliminar turno fijo',
+      message: `"${tf.equipoNombre}" deja de reservarse automáticamente los ${DIAS_SEMANA[tf.diaSemana]?.plural?.toLowerCase() ?? ''}. Podés deshacerlo desde el aviso.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
+
     tfActions.eliminar(tf.id);
-    toast.info(`Turno fijo de "${tf.equipoNombre}" eliminado`);
+    setModalTf(null);
+    toast.info(`Turno fijo de "${tf.equipoNombre}" eliminado`, {
+      action: { label: 'Deshacer', onClick: () => tfActions.restaurar(tf) },
+    });
   };
 
-  const handleCreateTurnoFijo = (e) => {
+  const openCreateModal = () => {
+    setTeamName('');
+    setCaptain('');
+    setPhone('');
+    setDiaSemana(5);
+    setHora('21:00');
+    setCanchaId(canchas[0]?.id ?? '');
+    setFormError('');
+    setModalTf('new');
+  };
+
+  const openEditModal = (tf) => {
+    setTeamName(tf.equipoNombre ?? '');
+    setCaptain(tf.capitanNombre ?? '');
+    setPhone(tf.telefono ?? '');
+    setDiaSemana(tf.diaSemana);
+    setHora(tf.hora);
+    setCanchaId(tf.canchaId ?? canchas[0]?.id ?? '');
+    setFormError('');
+    setModalTf(tf);
+  };
+
+  const handleSaveTurnoFijo = (e) => {
     e.preventDefault();
     setFormError('');
 
@@ -156,39 +193,31 @@ export default function TurnosFijos() {
       return;
     }
 
-    const result = tfActions.crear({
+    const data = {
       equipoNombre:  teamName.trim(),
       capitanNombre: captain.trim() || 'Capitán',
       telefono:      phone.trim() || null,
       diaSemana,
       hora,
       canchaId,
-      clienteId: null,
-    });
+    };
+
+    const result = isEdit
+      ? tfActions.actualizar(modalTf.id, data)
+      : tfActions.crear({ ...data, clienteId: null });
 
     if (!result.ok) {
       setFormError(result.error);
       return;
     }
 
-    toast.success(`Turno fijo "${teamName.trim()}" creado`);
-
-    // Reset form
-    setTeamName('');
-    setCaptain('');
-    setPhone('');
-    setDiaSemana(5);
-    setHora('21:00');
-    setCanchaId(canchas[0]?.id ?? '');
-    setShowModal(false);
+    toast.success(isEdit ? `Turno fijo "${teamName.trim()}" actualizado` : `Turno fijo "${teamName.trim()}" creado`);
+    setModalTf(null);
   };
 
   const closeModal = () => {
-    setShowModal(false);
+    setModalTf(null);
     setFormError('');
-    setTeamName('');
-    setCaptain('');
-    setPhone('');
   };
 
   return (
@@ -200,7 +229,7 @@ export default function TurnosFijos() {
           <h1 className="section-title">Turnos Fijos</h1>
           <p className="section-subtitle">Equipos abonados con reserva automática semanal</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)} style={{ padding: '9px 18px' }}>
+        <button className="btn-primary" onClick={openCreateModal} style={{ padding: '9px 18px' }}>
           <Plus size={15} style={{ color: 'var(--on-accent)' }} />
           Nuevo Turno Fijo
         </button>
@@ -256,24 +285,38 @@ export default function TurnosFijos() {
               position: 'relative',
             }}>
 
-              {/* Botón de eliminar */}
-              <button
-                onClick={() => handleDelete(tf)}
-                aria-label="Eliminar turno fijo"
-                style={{
-                  position: 'absolute', top: 12, right: 12,
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--text-muted)', padding: 4, borderRadius: 6,
-                  display: 'flex', alignItems: 'center',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--red)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-              >
-                <Trash2 size={13} />
-              </button>
+              {/* Botones de editar / eliminar */}
+              <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 2 }}>
+                <button
+                  onClick={() => openEditModal(tf)}
+                  aria-label={`Editar turno fijo de ${tf.equipoNombre}`}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', padding: 4, borderRadius: 6,
+                    display: 'flex', alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={() => handleDelete(tf)}
+                  aria-label={`Eliminar turno fijo de ${tf.equipoNombre}`}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', padding: 4, borderRadius: 6,
+                    display: 'flex', alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--red)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
 
               {/* Top row */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 8, paddingRight: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 8, paddingRight: 48 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                     <span style={{
@@ -339,8 +382,8 @@ export default function TurnosFijos() {
         })}
       </div>
 
-      {/* ─── Modal de Alta ─── */}
-      {showModal && (
+      {/* ─── Modal de Alta / Edición ─── */}
+      {modalTf && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal-content" style={{ maxWidth: 500 }}>
 
@@ -351,14 +394,16 @@ export default function TurnosFijos() {
                   <Repeat size={17} color="var(--purple)" />
                 </div>
                 <div>
-                  <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>Nuevo Turno Fijo</h3>
+                  <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {isEdit ? 'Editar Turno Fijo' : 'Nuevo Turno Fijo'}
+                  </h3>
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Reserva automática semanal</p>
                 </div>
               </div>
               <button className="btn-icon" onClick={closeModal}><X size={16} /></button>
             </div>
 
-            <form onSubmit={handleCreateTurnoFijo}>
+            <form onSubmit={handleSaveTurnoFijo}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
                 {/* Error */}
@@ -442,7 +487,8 @@ export default function TurnosFijos() {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 14, borderTop: '1px solid var(--border-dim)' }}>
                   <button type="button" onClick={closeModal} className="btn-secondary">Cancelar</button>
                   <button type="submit" className="btn-primary">
-                    <CheckCircle2 size={15} style={{ color: 'var(--on-accent)' }} /> Guardar Turno Fijo
+                    <CheckCircle2 size={15} style={{ color: 'var(--on-accent)' }} />
+                    {isEdit ? 'Guardar Cambios' : 'Guardar Turno Fijo'}
                   </button>
                 </div>
               </div>
@@ -451,6 +497,7 @@ export default function TurnosFijos() {
           </div>
         </div>
       )}
+      {ConfirmDialogMount}
     </div>
   );
 }
