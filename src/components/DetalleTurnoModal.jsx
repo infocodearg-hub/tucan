@@ -11,7 +11,7 @@
 import React, { useState } from 'react';
 import {
   X, Calendar, ShoppingBag, CheckCircle2,
-  MessageSquare, Trash2, Plus,
+  MessageSquare, Trash2, Plus, Pencil, Save, User, Phone,
 } from 'lucide-react';
 import {
   useCanchasActivas,
@@ -29,8 +29,13 @@ export default function DetalleTurnoModal({
   onSettleBooking,
   onCancelBooking,
   onAddCantinaToBooking,
+  onEditBooking,
 }) {
   const [showAddCantina, setShowAddCantina] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editNotes, setEditNotes] = useState('');
   const { confirm, ConfirmDialogMount } = useConfirm();
 
   const canchas  = useCanchasActivas();
@@ -38,6 +43,23 @@ export default function DetalleTurnoModal({
   const config   = useConfig();
 
   if (!isOpen || !booking) return null;
+
+  const startEditing = () => {
+    setEditName(booking.clientName ?? '');
+    setEditPhone(booking.clientPhone ?? '');
+    setEditNotes(booking.notes ?? '');
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editName.trim()) return;
+    onEditBooking({
+      clienteNombre: editName.trim(),
+      clienteTelefono: editPhone.trim() || null,
+      notas: editNotes,
+    });
+    setIsEditing(false);
+  };
 
   const cancha      = canchas.find((c) => c.id === booking.canchaId) ?? canchas[0];
   const balance     = (booking.totalPrice || 0) - (booking.depositPaid || 0);
@@ -104,8 +126,69 @@ export default function DetalleTurnoModal({
                 </p>
               </div>
             </div>
-            <button className="btn-icon" onClick={onClose}><X size={15} /></button>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              {onEditBooking && !isEditing && (
+                <button className="btn-icon" onClick={startEditing} aria-label="Editar turno">
+                  <Pencil size={14} />
+                </button>
+              )}
+              <button className="btn-icon" onClick={onClose} aria-label="Cerrar"><X size={15} /></button>
+            </div>
           </div>
+
+          {/* Edición: nombre, teléfono, notas */}
+          {isEditing && (
+            <div style={{
+              padding: 14, borderRadius: 14, background: 'var(--bg-surface)',
+              border: '1px solid var(--border-mid)', marginBottom: 16,
+              display: 'flex', flexDirection: 'column', gap: 10,
+            }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Cliente</label>
+                <div className="input-icon-wrap">
+                  <User size={14} className="input-icon" />
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="form-input"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Teléfono WhatsApp</label>
+                <div className="input-icon-wrap">
+                  <Phone size={14} className="input-icon" />
+                  <input
+                    type="text"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="form-input"
+                    placeholder="+54 9 351..."
+                  />
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Notas</label>
+                <textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="form-input"
+                  rows={2}
+                  style={{ resize: 'vertical', fontFamily: 'var(--font-sans)' }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 2 }}>
+                <button type="button" onClick={() => setIsEditing(false)} className="btn-secondary" style={{ padding: '7px 14px', fontSize: '0.78rem' }}>
+                  Cancelar
+                </button>
+                <button type="button" onClick={handleSaveEdit} className="btn-primary" style={{ padding: '7px 16px', fontSize: '0.78rem' }}>
+                  <Save size={13} style={{ color: 'var(--on-accent)' }} /> Guardar
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Info Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>

@@ -100,6 +100,14 @@ function AppInner({ onLogout }) {
   const [modalSlot, setModalSlot] = useState({ canchaId: 'c1', time: '20:00' });
   const [selectedBookingDetail, setSelectedBookingDetail] = useState(null);
 
+  // `selectedBookingDetail` guarda solo la identidad (id) del turno abierto.
+  // El objeto que efectivamente se muestra se relee de `bookings` (que ya se
+  // recalcula en cada render con el estado actual) — así que saldar, cargar
+  // cantina o editar se ven reflejados en el modal sin tener que cerrarlo.
+  const liveBookingDetail = selectedBookingDetail
+    ? (bookings.find((b) => b.id === selectedBookingDetail.id) ?? selectedBookingDetail)
+    : null;
+
   const handleOpenNuevoTurnoWithSlot = (canchaId, time) => {
     setModalSlot({ canchaId, time });
     setIsNuevoTurnoOpen(true);
@@ -153,15 +161,22 @@ function AppInner({ onLogout }) {
     toast.success(`¡Turno reservado para ${legacyBooking.clientName}!`);
   };
 
-  /** Turnos fijos proyectados (id `virt_...`) se materializan antes de tocarlos. */
+  /**
+   * Turnos fijos proyectados (id `virt_...`) se materializan antes de
+   * tocarlos. Si materializa, el id cambia (virt_xxx -> bkg_yyy) — se
+   * empuja ese id nuevo al snapshot para que `liveBookingDetail` (abajo)
+   * lo vuelva a encontrar en el próximo render.
+   */
   const ensureRealBookingId = (legacyDetail) => {
     if (!legacyDetail._source.esVirtual) return legacyDetail._source.id;
     const res = bookingActions.materializarFijo(legacyDetail._source);
-    return res.ok ? res.data.id : legacyDetail._source.id;
+    if (!res.ok) return legacyDetail._source.id;
+    setSelectedBookingDetail((prev) => (prev ? { ...prev, id: res.data.id } : prev));
+    return res.data.id;
   };
 
   const handleSettleBooking = () => {
-    const legacy = selectedBookingDetail;
+    const legacy = liveBookingDetail;
     if (!legacy) return;
     const realId = ensureRealBookingId(legacy);
     const totals = selectors.selectBookingTotals(state, legacy._source);
@@ -172,7 +187,7 @@ function AppInner({ onLogout }) {
   };
 
   const handleCancelBooking = () => {
-    const legacy = selectedBookingDetail;
+    const legacy = liveBookingDetail;
     if (!legacy) return;
     if (legacy._source.esVirtual) {
       // Es una proyección de turno fijo: "cancelar" es saltear solo esta fecha.
@@ -184,7 +199,7 @@ function AppInner({ onLogout }) {
   };
 
   const handleAddCantinaToBooking = (_bookingId, legacyProduct) => {
-    const legacy = selectedBookingDetail;
+    const legacy = liveBookingDetail;
     if (!legacy) return;
     const realId = ensureRealBookingId(legacy);
     saleActions.registrar({
@@ -203,6 +218,18 @@ function AppInner({ onLogout }) {
       canchaId: legacy._source.canchaId,
     });
     toast.success(`+ ${legacyProduct.name} agregado al turno`);
+  };
+
+  const handleEditBooking = (patch) => {
+    const legacy = liveBookingDetail;
+    if (!legacy) return;
+    const realId = ensureRealBookingId(legacy);
+    const result = bookingActions.actualizar(realId, patch);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success('Turno actualizado');
   };
 
   return (
@@ -278,14 +305,15 @@ function AppInner({ onLogout }) {
         />
       )}
 
-      {/* ─── Detailed Booking Modal (Interactive Settle, Cantina, WA, Cancel) ─── */}
+      {/* ─── Detailed Booking Modal (Interactive Settle, Cantina, WA, Cancel, Edit) ─── */}
       <DetalleTurnoModal
-        booking={selectedBookingDetail}
+        booking={liveBookingDetail}
         isOpen={!!selectedBookingDetail}
         onClose={() => setSelectedBookingDetail(null)}
         onSettleBooking={handleSettleBooking}
         onCancelBooking={handleCancelBooking}
         onAddCantinaToBooking={handleAddCantinaToBooking}
+        onEditBooking={handleEditBooking}
       />
 
       <ToastViewport />
