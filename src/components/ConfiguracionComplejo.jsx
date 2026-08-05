@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
-import { 
-  Settings, Building2, CreditCard, ShieldCheck, Save, Bot, 
-  Bell, Phone, Globe, Zap, Check, MapPin
+/**
+ * ConfiguracionComplejo.jsx — Fase 2
+ *
+ * Lee del store directo. Sin imports de mockData.js.
+ *
+ * Cambios clave vs. versión anterior:
+ *   - useConfig() en vez de useState(COMPLEX_INFO)
+ *   - useConfigActions().actualizar(patch) para datos del complejo, pagos e integraciones
+ *   - useCanchaActions().actualizar(canchaId, { precioDia, precioNoche }) para tarifas
+ *   - ToggleRow ya no tiene useState propio: lee y escribe config.integraciones.*
+ *   - senaMinimaPorcentaje → config.pagos.senaMinimaPorcentaje (controlado)
+ *   - Toast de éxito al guardar (no un setSaved cosmético)
+ */
+import React, { useCallback } from 'react';
+import {
+  Settings, Building2, CreditCard, ShieldCheck, Save,
+  Bot, Bell, MapPin, Zap, Check,
 } from 'lucide-react';
-import { COMPLEX_INFO } from '../data/mockData';
+import { useConfig, useConfigActions, useCanchaActions, useToast, useCanchasActivas } from '../store';
+
+// ─── Section wrapper ──────────────────────────────────────────────────────────
 
 function Section({ title, icon, iconColor = 'var(--green)', children }) {
   return (
@@ -19,8 +34,9 @@ function Section({ title, icon, iconColor = 'var(--green)', children }) {
   );
 }
 
-function ToggleRow({ label, sub, defaultOn = false }) {
-  const [on, setOn] = useState(defaultOn);
+// ─── ToggleRow conectado al store ─────────────────────────────────────────────
+
+function ToggleRow({ label, sub, value, onChange }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
       <div>
@@ -28,34 +44,70 @@ function ToggleRow({ label, sub, defaultOn = false }) {
         {sub && <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{sub}</p>}
       </div>
       <label className="toggle-switch" style={{ cursor: 'pointer' }}>
-        <input type="checkbox" checked={on} onChange={e => setOn(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={!!value}
+          onChange={(e) => onChange(e.target.checked)}
+        />
         <span className="toggle-slider" />
       </label>
     </div>
   );
 }
 
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 export default function ConfiguracionComplejo() {
-  const [config, setConfig] = useState(COMPLEX_INFO);
-  const [saved, setSaved] = useState(false);
+  const config        = useConfig();
+  const configActions = useConfigActions();
+  const canchaActions = useCanchaActions();
+  const canchas       = useCanchasActivas();
+  const toast         = useToast();
+
+  // ─── Helpers de actualización ─────────────────────────────────────────────
+
+  const updateComplejo = useCallback(
+    (patch) => configActions.actualizar({ complejo: patch }),
+    [configActions]
+  );
+
+  const updatePagos = useCallback(
+    (patch) => configActions.actualizar({ pagos: patch }),
+    [configActions]
+  );
+
+  const updateIntegracion = useCallback(
+    (key, val) => configActions.actualizar({ integraciones: { [key]: val } }),
+    [configActions]
+  );
 
   const handleSave = (e) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    toast.success('Configuración guardada correctamente');
   };
+
+  // ─── Guard: si el store aún no cargó ─────────────────────────────────────
+  if (!config) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
+        Cargando configuración…
+      </div>
+    );
+  }
+
+  const { complejo, pagos, integraciones } = config;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Header */}
+      {/* ─── Header ─── */}
       <div className="section-header">
         <div>
           <h1 className="section-title">Configuración</h1>
           <p className="section-subtitle">Datos del complejo · Tarifas · Integraciones · Bot de WhatsApp</p>
         </div>
         <button onClick={handleSave} className="btn-primary" style={{ padding: '9px 20px' }}>
-          {saved ? <><Check size={15} style={{ color: 'var(--on-accent)' }} /> Guardado!</> : <><Save size={15} style={{ color: 'var(--on-accent)' }} /> Guardar Cambios</>}
+          <Save size={15} style={{ color: 'var(--on-accent)' }} /> Guardar Cambios
         </button>
       </div>
 
@@ -68,8 +120,8 @@ export default function ConfiguracionComplejo() {
               <label className="form-label">Nombre Comercial</label>
               <input
                 type="text"
-                value={config.name}
-                onChange={e => setConfig({ ...config, name: e.target.value })}
+                value={complejo.nombre ?? ''}
+                onChange={(e) => updateComplejo({ nombre: e.target.value })}
                 className="form-input"
               />
             </div>
@@ -78,8 +130,8 @@ export default function ConfiguracionComplejo() {
                 <label className="form-label">Ciudad / Provincia</label>
                 <input
                   type="text"
-                  value={config.city}
-                  onChange={e => setConfig({ ...config, city: e.target.value })}
+                  value={complejo.ciudad ?? ''}
+                  onChange={(e) => updateComplejo({ ciudad: e.target.value })}
                   className="form-input"
                 />
               </div>
@@ -87,8 +139,8 @@ export default function ConfiguracionComplejo() {
                 <label className="form-label">Teléfono WhatsApp</label>
                 <input
                   type="text"
-                  value={config.phone}
-                  onChange={e => setConfig({ ...config, phone: e.target.value })}
+                  value={complejo.telefono ?? ''}
+                  onChange={(e) => updateComplejo({ telefono: e.target.value })}
                   className="form-input"
                 />
               </div>
@@ -99,8 +151,8 @@ export default function ConfiguracionComplejo() {
                 <MapPin size={14} className="input-icon" />
                 <input
                   type="text"
-                  value={config.address}
-                  onChange={e => setConfig({ ...config, address: e.target.value })}
+                  value={complejo.direccion ?? ''}
+                  onChange={(e) => updateComplejo({ direccion: e.target.value })}
                   className="form-input"
                 />
               </div>
@@ -109,31 +161,54 @@ export default function ConfiguracionComplejo() {
 
           {/* ─── Tarifas por Cancha ─── */}
           <Section title="Tarifas por Cancha" icon={<Zap size={15} />} iconColor="var(--volt)">
-            {config.canchas.map(c => (
-              <div key={c.id} style={{ padding: '12px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-dim)`, borderLeft: `3px solid ${c.color}` }}>
+            {canchas.map((c) => (
+              <div key={c.id} style={{ padding: '12px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-dim)`, borderLeft: `3px solid ${c.color ?? 'var(--green)'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, display: 'inline-block' }} />
-                  <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem' }}>{c.name}</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>· {c.type}</span>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color ?? 'var(--green)', display: 'inline-block' }} />
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem' }}>{c.nombre}</span>
+                  {c.subtitulo && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>· {c.subtitulo}</span>}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.65rem' }}>☀️ Precio Diurno ($)</label>
-                    <input type="number" defaultValue={c.priceDay} className="form-input" style={{ padding: '8px 12px', fontSize: '0.88rem' }} />
+                    <input
+                      type="number"
+                      min={0}
+                      value={c.precioDia ?? 0}
+                      onChange={(e) =>
+                        canchaActions.actualizar(c.id, { precioDia: Number(e.target.value) })
+                      }
+                      className="form-input"
+                      style={{ padding: '8px 12px', fontSize: '0.88rem' }}
+                    />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.65rem' }}>🌙 Precio Nocturno ($)</label>
-                    <input type="number" defaultValue={c.priceNight} className="form-input" style={{ padding: '8px 12px', fontSize: '0.88rem' }} />
+                    <input
+                      type="number"
+                      min={0}
+                      value={c.precioNoche ?? 0}
+                      onChange={(e) =>
+                        canchaActions.actualizar(c.id, { precioNoche: Number(e.target.value) })
+                      }
+                      className="form-input"
+                      style={{ padding: '8px 12px', fontSize: '0.88rem' }}
+                    />
                   </div>
                 </div>
               </div>
             ))}
+
             <div className="form-group">
               <label className="form-label">Seña Mínima Requerida (%)</label>
               <input
                 type="number"
-                value={config.señaMinimaPorcentaje}
-                onChange={e => setConfig({ ...config, señaMinimaPorcentaje: e.target.value })}
+                min={0}
+                max={100}
+                value={pagos.senaMinimaPorcentaje ?? 50}
+                onChange={(e) =>
+                  updatePagos({ senaMinimaPorcentaje: Number(e.target.value) })
+                }
                 className="form-input"
               />
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
@@ -142,7 +217,7 @@ export default function ConfiguracionComplejo() {
             </div>
           </Section>
 
-          {/* ─── Mercado Pago & CBU ─── */}
+          {/* ─── Cobros & Mercado Pago ─── */}
           <Section title="Cobros & Mercado Pago" icon={<CreditCard size={15} />} iconColor="var(--blue)">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 11, background: 'rgba(0,230,118,0.07)', border: '1px solid rgba(0,230,118,0.25)' }}>
               <ShieldCheck size={18} color="var(--green)" style={{ flexShrink: 0 }} />
@@ -157,8 +232,8 @@ export default function ConfiguracionComplejo() {
               <label className="form-label">Alias Mercado Pago</label>
               <input
                 type="text"
-                value={config.alias}
-                onChange={e => setConfig({ ...config, alias: e.target.value })}
+                value={pagos.alias ?? ''}
+                onChange={(e) => updatePagos({ alias: e.target.value })}
                 className="form-input"
                 style={{ fontFamily: 'monospace' }}
               />
@@ -168,48 +243,53 @@ export default function ConfiguracionComplejo() {
               <label className="form-label">CBU / CVU Bancario</label>
               <input
                 type="text"
-                value={config.cbu}
-                onChange={e => setConfig({ ...config, cbu: e.target.value })}
+                value={pagos.cbu ?? ''}
+                onChange={(e) => updatePagos({ cbu: e.target.value })}
                 className="form-input"
                 style={{ fontFamily: 'monospace', letterSpacing: '0.05em', fontSize: '0.82rem' }}
               />
             </div>
 
             <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              ⚡ <strong style={{ color: 'var(--text-primary)' }}>OCR / Visión IA:</strong> El bot lee capturas de pago y verifica CBU + monto en segundos, confirmando la seña sin intervención manual.
+              ⚡ <strong style={{ color: 'var(--text-primary)' }}>OCR / Visión IA:</strong> El bot lee capturas de pago y verifica CBU + monto en segundos.
             </div>
           </Section>
 
-          {/* ─── Bot & Notificaciones ─── */}
+          {/* ─── Bot IA & Notificaciones ─── */}
           <Section title="Bot IA & Notificaciones" icon={<Bot size={15} />} iconColor="var(--purple)">
             <ToggleRow
               label="WhatsApp Bot Activo"
               sub="El bot responde automáticamente a consultas y reservas"
-              defaultOn={true}
+              value={integraciones.whatsappBotActivo}
+              onChange={(v) => updateIntegracion('whatsappBotActivo', v)}
             />
             <div style={{ height: 1, background: 'var(--border-dim)' }} />
             <ToggleRow
               label="Modo 24/7 Automático"
               sub="Responde fuera del horario de atención también"
-              defaultOn={true}
+              value={integraciones.modo247}
+              onChange={(v) => updateIntegracion('modo247', v)}
             />
             <div style={{ height: 1, background: 'var(--border-dim)' }} />
             <ToggleRow
               label="Alertas de Turnos Sin Seña"
               sub="Notificación si un turno supera X horas sin señar"
-              defaultOn={true}
+              value={integraciones.alertasSinSena}
+              onChange={(v) => updateIntegracion('alertasSinSena', v)}
             />
             <div style={{ height: 1, background: 'var(--border-dim)' }} />
             <ToggleRow
               label="Recordatorio Automático a Clientes"
               sub={'WhatsApp 2hs antes del turno: "Hoy a las Xhs, ¡nos vemos!"'}
-              defaultOn={false}
+              value={integraciones.recordatorioAutomatico}
+              onChange={(v) => updateIntegracion('recordatorioAutomatico', v)}
             />
             <div style={{ height: 1, background: 'var(--border-dim)' }} />
             <ToggleRow
               label="Confirmación por OCR de Comprobantes"
               sub="Verificar capturas de pago con Visión IA"
-              defaultOn={true}
+              value={integraciones.ocrComprobantes}
+              onChange={(v) => updateIntegracion('ocrComprobantes', v)}
             />
           </Section>
 

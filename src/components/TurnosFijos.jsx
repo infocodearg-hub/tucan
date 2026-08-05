@@ -1,64 +1,200 @@
-import React, { useState } from 'react';
-import { 
-  Repeat, CheckCircle2, AlertTriangle, Plus, Phone, User, DollarSign, X, Calendar
+/**
+ * TurnosFijos.jsx — Fase 2
+ *
+ * Lee del store directo. Sin imports de mockData.js.
+ *
+ * Modelo nuevo vs. modelo viejo:
+ *   - `diaSemana` numérico ISO (1=Lunes…7=Domingo) — usar DIAS_SEMANA[n].plural
+ *   - `canchaId` FK real (no string libre) — usar useCanchasActivas() para labels
+ *   - precio mensual derivado con precioMensualFijo() + occurrencesInMonth()
+ *   - estado mensual `tf.estadoPorMes[mesKey]` → 'al_dia'|'pendiente'|'deuda'
+ */
+import React, { useState, useMemo } from 'react';
+import {
+  Repeat, CheckCircle2, Plus, Phone, User, DollarSign, X,
+  Trash2, AlertCircle,
 } from 'lucide-react';
-import { TURNOS_FIJOS_RECURRENTES, COMPLEX_INFO, TIME_SLOTS } from '../data/mockData';
-import CustomSelect from './CustomSelect';
+import {
+  useTurnosFijos,
+  useTurnoFijoActions,
+  useCanchasActivas,
+  useConfig,
+  useToast,
+} from '../store';
+import { DIAS_SEMANA, monthKey, occurrencesInMonth, todayISO } from '../lib/date';
+import { precioMensualFijo } from '../lib/pricing';
+import { formatARS, formatARSCompact } from '../lib/format';
+import {
+  ESTADO_MES, ESTADO_MES_LABEL, ESTADO_MES_VARIANT,
+} from '../lib/status';
 
-const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+// Opciones de hora para el selector del modal
+const TIME_OPTIONS = Array.from({ length: 15 }, (_, i) => {
+  const h = i + 8;
+  return { value: `${String(h).padStart(2, '0')}:00`, label: `${String(h).padStart(2, '0')}:00 hs` };
+});
+
+// Opciones de día de semana (ISO 1-7)
+const DAY_OPTIONS = DIAS_SEMANA.slice(1).map((d) => ({
+  value: d.n,
+  label: d.largo,
+}));
+
+// ─── Selector nativo pequeño ────────────────────────────────────────────────
+
+function NativeSelect({ value, onChange, options, placeholder }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        const val = e.target.value;
+        // Convertir a número si es un día de semana
+        const num = Number(val);
+        onChange(Number.isNaN(num) || val === '' ? val : num);
+      }}
+      className="form-input"
+      style={{ cursor: 'pointer' }}
+    >
+      {placeholder && <option value="">{placeholder}</option>}
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// ─── Badge de estado mensual ─────────────────────────────────────────────────
+
+function EstadoBadge({ estado }) {
+  const label = ESTADO_MES_LABEL[estado] ?? '—';
+  const variant = ESTADO_MES_VARIANT[estado] ?? 'sin_sena';
+  const styles = {
+    pagado:   { bg: 'rgba(0,230,118,0.1)',  border: 'rgba(0,230,118,0.3)',  color: 'var(--green)' },
+    senado:   { bg: 'rgba(255,179,0,0.1)',  border: 'rgba(255,179,0,0.3)',  color: 'var(--amber)' },
+    bloqueado:{ bg: 'rgba(255,79,79,0.1)',  border: 'rgba(255,79,79,0.3)',  color: 'var(--red)'   },
+    sin_sena: { bg: 'rgba(140,140,140,0.1)',border: 'rgba(140,140,140,0.2)',color: 'var(--text-muted)'},
+    libre:    { bg: 'rgba(140,140,140,0.1)',border: 'rgba(140,140,140,0.2)',color: 'var(--text-muted)'},
+    fijo:     { bg: 'rgba(185,136,252,0.1)',border: 'rgba(185,136,252,0.3)',color: 'var(--purple)' },
+  };
+  const s = styles[variant] ?? styles.sin_sena;
+  return (
+    <span style={{
+      padding: '4px 10px', borderRadius: 99, flexShrink: 0,
+      background: s.bg, border: `1px solid ${s.border}`, color: s.color,
+      fontSize: '0.72rem', fontWeight: 800,
+    }}>
+      {estado === ESTADO_MES.al_dia ? `✓ ${label}` : `⚠ ${label}`}
+    </span>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function TurnosFijos() {
-  const [turnos, setTurnos] = useState(TURNOS_FIJOS_RECURRENTES);
-  const [showModal, setShowModal] = useState(false);
+  const turnosFijos   = useTurnosFijos();
+  const canchas       = useCanchasActivas();
+  const config        = useConfig();
+  const tfActions     = useTurnoFijoActions();
+  const toast         = useToast();
 
-  const [teamName, setTeamName] = useState('');
-  const [captain, setCaptain] = useState('');
-  const [phone, setPhone] = useState('');
-  const [day, setDay] = useState('Viernes');
-  const [time, setTime] = useState('21:00');
-  const [canchaName, setCanchaName] = useState('Cancha 1 - Fútbol 5');
+  const mesActual     = monthKey(todayISO());
+  const nightFrom     = config?.operacion?.horaNocturnaDesde ?? '19:00';
 
-  const handleCollect = (id) => {
-    setTurnos(prev => prev.map(t => t.id === id ? { ...t, monthlyStatus: 'Al día' } : t));
+  // ─── Estado local del modal de alta ─────────────────────────────────────
+  const [showModal,   setShowModal]   = useState(false);
+  const [teamName,    setTeamName]    = useState('');
+  const [captain,     setCaptain]     = useState('');
+  const [phone,       setPhone]       = useState('');
+  const [diaSemana,   setDiaSemana]   = useState(5);   // Viernes
+  const [hora,        setHora]        = useState('21:00');
+  const [canchaId,    setCanchaId]    = useState(canchas[0]?.id ?? '');
+  const [formError,   setFormError]   = useState('');
+
+  // ─── Opciones de cancha para el selector ────────────────────────────────
+  const canchaOptions = useMemo(
+    () => canchas.map((c) => ({ value: c.id, label: c.nombre })),
+    [canchas]
+  );
+
+  // ─── Derivar precio mensual para cada turno ──────────────────────────────
+  function precioParaTf(tf) {
+    const cancha = canchas.find((c) => c.id === tf.canchaId);
+    const ocurrencias = occurrencesInMonth(mesActual, tf.diaSemana).length;
+    return precioMensualFijo(tf, cancha, ocurrencias, nightFrom);
+  }
+
+  // ─── KPIs ────────────────────────────────────────────────────────────────
+  const upToDate     = turnosFijos.filter((tf) =>
+    tf.estadoPorMes?.[mesActual] === ESTADO_MES.al_dia
+  ).length;
+  const pending      = turnosFijos.length - upToDate;
+  const monthlyTotal = turnosFijos.reduce((s, tf) => s + precioParaTf(tf), 0);
+
+  // ─── Handlers ────────────────────────────────────────────────────────────
+  const handleCollect = (tf) => {
+    tfActions.marcarMes(tf.id, mesActual, ESTADO_MES.al_dia);
+    toast.success(`Abono de ${tf.equipoNombre} marcado como cobrado`);
+  };
+
+  const handleDelete = (tf) => {
+    tfActions.eliminar(tf.id);
+    toast.info(`Turno fijo de "${tf.equipoNombre}" eliminado`);
   };
 
   const handleCreateTurnoFijo = (e) => {
     e.preventDefault();
-    if (!teamName.trim()) return;
+    setFormError('');
 
-    const newFijo = {
-      id: 'tf_' + Date.now(),
-      teamName,
-      captain: captain || 'Capitán Equipo',
-      phone: phone || '+54 9 351 000-0000',
-      day,
-      time,
-      cancha: canchaName,
-      monthlyPrice: 110000,
-      monthlyStatus: 'Pendiente',
-      lastPaymentDate: 'Pendiente'
-    };
+    if (!teamName.trim()) {
+      setFormError('El nombre del equipo es obligatorio.');
+      return;
+    }
+    if (!canchaId) {
+      setFormError('Seleccioná una cancha.');
+      return;
+    }
 
-    setTurnos([newFijo, ...turnos]);
+    const result = tfActions.crear({
+      equipoNombre:  teamName.trim(),
+      capitanNombre: captain.trim() || 'Capitán',
+      telefono:      phone.trim() || null,
+      diaSemana,
+      hora,
+      canchaId,
+      clienteId: null,
+    });
+
+    if (!result.ok) {
+      setFormError(result.error);
+      return;
+    }
+
+    toast.success(`Turno fijo "${teamName.trim()}" creado`);
+
+    // Reset form
     setTeamName('');
     setCaptain('');
     setPhone('');
+    setDiaSemana(5);
+    setHora('21:00');
+    setCanchaId(canchas[0]?.id ?? '');
     setShowModal(false);
   };
 
-  const monthlyTotal = turnos.reduce((s, t) => s + t.monthlyPrice, 0);
-  const upToDate     = turnos.filter(t => t.monthlyStatus === 'Al día').length;
-  const pending      = turnos.length - upToDate;
-
-  // Options for CustomSelect
-  const dayOptions = DAYS.map(d => ({ value: d, label: d }));
-  const timeOptions = TIME_SLOTS.map(t => ({ value: t, label: `${t} hs` }));
-  const canchaOptions = COMPLEX_INFO.canchas.map(c => ({ value: c.name, label: c.name }));
+  const closeModal = () => {
+    setShowModal(false);
+    setFormError('');
+    setTeamName('');
+    setCaptain('');
+    setPhone('');
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Header */}
+      {/* ─── Header ─── */}
       <div className="section-header">
         <div>
           <h1 className="section-title">Turnos Fijos</h1>
@@ -70,82 +206,118 @@ export default function TurnosFijos() {
         </button>
       </div>
 
-      {/* Stats Row */}
+      {/* ─── Stats Row ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
         {[
-          { label: 'Total Equipos', value: turnos.length,   color: 'var(--purple)', sub: 'activos esta semana' },
-          { label: 'Al Día',        value: upToDate,        color: 'var(--green)', sub: 'abono mensual cobrado' },
-          { label: 'Pendientes',    value: pending,         color: pending > 0 ? 'var(--amber)' : 'var(--green)', sub: 'por cobrar este mes' },
-          { label: 'Ingresos Mes',  value: `$${(monthlyTotal/1000).toFixed(0)}k`, color: 'var(--blue)', sub: 'ingresos recurrentes' },
+          { label: 'Total Equipos', value: turnosFijos.length, color: 'var(--purple)', sub: 'activos esta semana' },
+          { label: 'Al Día',        value: upToDate,           color: 'var(--green)',  sub: 'abono mensual cobrado' },
+          { label: 'Pendientes',    value: pending,            color: pending > 0 ? 'var(--amber)' : 'var(--green)', sub: 'por cobrar este mes' },
+          { label: 'Ingresos Mes',  value: formatARSCompact(monthlyTotal), color: 'var(--blue)', sub: 'ingresos recurrentes' },
         ].map((s, i) => (
           <div key={i} style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--bg-card)', border: '1px solid var(--border-dim)' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{s.label}</p>
-            <p className="font-heading" style={{ fontSize: '1.5rem', fontWeight: 900, color: s.color, lineHeight: 1, marginBottom: 4 }}>{s.value}</p>
+            <p className="font-heading num" style={{ fontSize: '1.5rem', fontWeight: 900, color: s.color, lineHeight: 1, marginBottom: 4 }}>{s.value}</p>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.sub}</p>
           </div>
         ))}
       </div>
 
-      {/* Cards */}
+      {/* ─── Empty state ─── */}
+      {turnosFijos.length === 0 && (
+        <div style={{
+          padding: '48px 24px', textAlign: 'center',
+          borderRadius: 14, background: 'var(--bg-card)', border: '1px dashed var(--border-mid)',
+        }}>
+          <Repeat size={32} color="var(--text-muted)" style={{ marginBottom: 12 }} />
+          <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+            No hay turnos fijos todavía
+          </p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Creá el primero con el botón "Nuevo Turno Fijo".
+          </p>
+        </div>
+      )}
+
+      {/* ─── Cards ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-        {turnos.map(tf => {
-          const ok = tf.monthlyStatus === 'Al día';
+        {turnosFijos.map((tf) => {
+          const estadoMes = tf.estadoPorMes?.[mesActual] ?? ESTADO_MES.pendiente;
+          const ok        = estadoMes === ESTADO_MES.al_dia;
+          const cancha    = canchas.find((c) => c.id === tf.canchaId);
+          const diaNombre = DIAS_SEMANA[tf.diaSemana]?.plural ?? `Día ${tf.diaSemana}`;
+          const precio    = precioParaTf(tf);
+
           return (
             <div key={tf.id} style={{
               padding: '18px', borderRadius: 14, background: 'var(--bg-card)',
               border: `1px solid ${ok ? 'var(--border-dim)' : 'rgba(255,179,0,0.3)'}`,
               transition: 'all 0.2s ease',
-              boxShadow: ok ? 'none' : '0 0 18px rgba(255,179,0,0.07)'
+              boxShadow: ok ? 'none' : '0 0 18px rgba(255,179,0,0.07)',
+              position: 'relative',
             }}>
-              
+
+              {/* Botón de eliminar */}
+              <button
+                onClick={() => handleDelete(tf)}
+                aria-label="Eliminar turno fijo"
+                style={{
+                  position: 'absolute', top: 12, right: 12,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', padding: 4, borderRadius: 6,
+                  display: 'flex', alignItems: 'center',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--red)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+              >
+                <Trash2 size={13} />
+              </button>
+
               {/* Top row */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 8, paddingRight: 24 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                     <span style={{
                       padding: '3px 10px', borderRadius: 99,
                       background: 'rgba(185,136,252,0.12)', border: '1px solid rgba(185,136,252,0.3)',
-                      color: 'var(--purple)', fontSize: '0.78rem', fontWeight: 800
+                      color: 'var(--purple)', fontSize: '0.78rem', fontWeight: 800,
                     }}>
-                      {tf.day}s · {tf.time}
+                      {diaNombre} · {tf.hora}
                     </span>
                   </div>
-                  <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem' }}>{tf.teamName}</h3>
-                  <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 3 }}>{tf.cancha}</p>
+                  <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem' }}>
+                    {tf.equipoNombre}
+                  </h3>
+                  <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                    {cancha?.nombre ?? tf.canchaId}
+                  </p>
                 </div>
-                <span style={{
-                  padding: '4px 10px', borderRadius: 99, flexShrink: 0,
-                  background: ok ? 'rgba(0,230,118,0.1)' : 'rgba(255,179,0,0.1)',
-                  border: `1px solid ${ok ? 'rgba(0,230,118,0.3)' : 'rgba(255,179,0,0.3)'}`,
-                  color: ok ? 'var(--green)' : 'var(--amber)',
-                  fontSize: '0.72rem', fontWeight: 800
-                }}>
-                  {ok ? '✓ Al día' : '⚠ Pendiente'}
-                </span>
+                <EstadoBadge estado={estadoMes} />
               </div>
 
-              {/* Captain */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              {/* Capitán + teléfono */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, fontSize: '0.8rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <User size={13} color="var(--green)" /> {tf.captain}
+                  <User size={13} color="var(--green)" /> {tf.capitanNombre ?? '—'}
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Phone size={13} color="var(--blue)" /> {tf.phone}
-                </span>
+                {tf.telefono && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Phone size={13} color="var(--blue)" /> {tf.telefono}
+                  </span>
+                )}
               </div>
 
-              {/* Monthly price & action */}
+              {/* Precio mensual + acción */}
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 14px', borderRadius: 10,
-                background: 'var(--bg-surface)', border: '1px solid var(--border-dim)'
+                background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
               }}>
                 <div>
                   <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
                     Abono Mensual
                   </p>
-                  <p className="font-heading" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '1.05rem' }}>
-                    ${tf.monthlyPrice.toLocaleString('es-AR')}/mes
+                  <p className="font-heading num" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '1.05rem' }}>
+                    {formatARS(precio)}/mes
                   </p>
                 </div>
                 {ok ? (
@@ -154,7 +326,7 @@ export default function TurnosFijos() {
                   </span>
                 ) : (
                   <button
-                    onClick={() => handleCollect(tf.id)}
+                    onClick={() => handleCollect(tf)}
                     className="btn-primary"
                     style={{ padding: '7px 14px', fontSize: '0.78rem' }}
                   >
@@ -167,10 +339,12 @@ export default function TurnosFijos() {
         })}
       </div>
 
-      {/* Add Modal */}
+      {/* ─── Modal de Alta ─── */}
       {showModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
           <div className="modal-content" style={{ maxWidth: 500 }}>
+
+            {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border-dim)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(185,136,252,0.12)', border: '1px solid rgba(185,136,252,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -181,11 +355,20 @@ export default function TurnosFijos() {
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Reserva automática semanal</p>
                 </div>
               </div>
-              <button className="btn-icon" onClick={() => setShowModal(false)}><X size={16} /></button>
+              <button className="btn-icon" onClick={closeModal}><X size={16} /></button>
             </div>
 
             <form onSubmit={handleCreateTurnoFijo}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                {/* Error */}
+                {formError && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,79,79,0.08)', border: '1px solid rgba(255,79,79,0.3)', color: 'var(--red)', fontSize: '0.8rem' }}>
+                    <AlertCircle size={14} /> {formError}
+                  </div>
+                )}
+
+                {/* Nombre del equipo */}
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Nombre del Equipo / Grupo *</label>
                   <div className="input-icon-wrap">
@@ -194,13 +377,13 @@ export default function TurnosFijos() {
                       type="text"
                       placeholder="Ej: Los Pibes del Viernes"
                       value={teamName}
-                      onChange={e => setTeamName(e.target.value)}
+                      onChange={(e) => setTeamName(e.target.value)}
                       className="form-input"
-                      required
                     />
                   </div>
                 </div>
 
+                {/* Capitán + teléfono */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Nombre del Capitán</label>
@@ -208,7 +391,7 @@ export default function TurnosFijos() {
                       type="text"
                       placeholder="Ej: Juan Pérez"
                       value={captain}
-                      onChange={e => setCaptain(e.target.value)}
+                      onChange={(e) => setCaptain(e.target.value)}
                       className="form-input"
                     />
                   </div>
@@ -218,42 +401,46 @@ export default function TurnosFijos() {
                       type="text"
                       placeholder="+54 9 351..."
                       value={phone}
-                      onChange={e => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(e.target.value)}
                       className="form-input"
                     />
                   </div>
                 </div>
 
+                {/* Día + hora */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Día de la Semana</label>
-                    <CustomSelect
-                      options={dayOptions}
-                      value={day}
-                      onChange={setDay}
+                    <NativeSelect
+                      options={DAY_OPTIONS}
+                      value={diaSemana}
+                      onChange={setDiaSemana}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Horario</label>
-                    <CustomSelect
-                      options={timeOptions}
-                      value={time}
-                      onChange={setTime}
+                    <NativeSelect
+                      options={TIME_OPTIONS}
+                      value={hora}
+                      onChange={setHora}
                     />
                   </div>
                 </div>
 
+                {/* Cancha */}
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Cancha</label>
-                  <CustomSelect
+                  <NativeSelect
                     options={canchaOptions}
-                    value={canchaName}
-                    onChange={setCanchaName}
+                    value={canchaId}
+                    onChange={(v) => setCanchaId(String(v))}
+                    placeholder={canchas.length === 0 ? 'No hay canchas activas' : undefined}
                   />
                 </div>
 
+                {/* Acciones */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 14, borderTop: '1px solid var(--border-dim)' }}>
-                  <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>
+                  <button type="button" onClick={closeModal} className="btn-secondary">Cancelar</button>
                   <button type="submit" className="btn-primary">
                     <CheckCircle2 size={15} style={{ color: 'var(--on-accent)' }} /> Guardar Turno Fijo
                   </button>

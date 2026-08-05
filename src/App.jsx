@@ -249,12 +249,7 @@ export default function App() {
             />
           )}
           {activeTab === 'turnos_fijos' && <TurnosFijos />}
-          {activeTab === 'cantina' && (
-            <CajaCantina
-              products={products}
-              onAddProduct={handleAddProduct}
-            />
-          )}
+          {activeTab === 'cantina' && <CajaCantina />}
           {activeTab === 'clientes' && (
             <ClientesCRM
               clients={clients}

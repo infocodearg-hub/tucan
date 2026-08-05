@@ -1,126 +1,211 @@
+/**
+ * CajaCantina.jsx — Fase 2
+ *
+ * Lee del store directo. Sin imports de mockData.js.
+ *
+ * Cambios clave vs. versión anterior:
+ *   - useProducts() en vez de prop `products`
+ *   - useSales() + useCajaDelDia() para el historial y la recaudación
+ *   - useSaleActions().registrar() descuenta stock automáticamente (crossSlice)
+ *   - useProductActions().crear() para nuevo producto
+ *   - useBookingsForDate(selectedDate) para el selector "Asignar a turno"
+ *   - iconForProduct(product) de lib/catalog.js — fin del PRODUCT_ICONS roto
+ *   - nombres del store: product.nombre (no .name), product.precio (no .price)
+ */
 import React, { useState } from 'react';
-import { 
-  ShoppingBag, Plus, Minus, Trash2, CheckCircle2, DollarSign, 
-  Search, Calendar, Clock, CreditCard, ArrowUpRight, Check,
-  GlassWater, Beer, Wine, Droplets, Package, Shirt, Sparkles, Trophy,
-  UserCheck, Store, Wallet, Building, PlusCircle
+import {
+  ShoppingBag, Plus, Minus, Trash2, CheckCircle2,
+  Search, Package, Store, UserCheck, PlusCircle,
 } from 'lucide-react';
-import { CANTINA_PRODUCTS, INITIAL_BOOKINGS } from '../data/mockData';
-import CustomSelect from './CustomSelect';
+import {
+  useProducts,
+  useCajaDelDia,
+  useSales,
+  useBookingsForDate,
+  useSelectedDate,
+  useSaleActions,
+  useProductActions,
+  useToast,
+} from '../store';
+import { iconForProduct, CATEGORIAS } from '../lib/catalog';
+import { formatARS, formatARSCompact } from '../lib/format';
+import { timestampToTime } from '../lib/date';
 import VentaExitosaModal from './VentaExitosaModal';
 import NuevoProductoModal from './NuevoProductoModal';
 
-const PRODUCT_ICONS = {
-  prod_gatorade: GlassWater,
-  prod_stella: Beer,
-  prod_fernet: Wine,
-  prod_agua: Droplets,
-  prod_coca: GlassWater,
-  prod_papas: Package,
-  prod_pelota: Trophy,
-  prod_pecheras: Shirt,
-  prod_paleta: Sparkles
+const CATEGORY_LABELS = {
+  todas: 'Todas',
+  ...Object.fromEntries(Object.entries(CATEGORIAS).map(([k, v]) => [k, v])),
 };
 
-export default function CajaCantina({ products, onAddProduct }) {
-  const [selectedCategory, setSelectedCategory] = useState('Todas');
-  const [search, setSearch] = useState('');
-  const [cart, setCart] = useState([]);
-  const [paymentMethod, setPaymentMethod] = useState('Efectivo');
-  const [assignedBookingId, setAssignedBookingId] = useState('');
-  const [discountPercent, setDiscountPercent] = useState(0);
+// ─── Métodos de pago ──────────────────────────────────────────────────────────
+const PAYMENT_METHODS = [
+  { key: 'efectivo',     label: 'Efectivo' },
+  { key: 'mercadopago',  label: 'MP' },
+  { key: 'transferencia',label: 'Transfer.' },
+];
 
-  const [completedSale, setCompletedSale] = useState(null);
+// ─── Componente principal ─────────────────────────────────────────────────────
+
+export default function CajaCantina() {
+  const products        = useProducts();
+  const selectedDate    = useSelectedDate();
+  const cajaHoy         = useCajaDelDia(selectedDate);
+  const allSales        = useSales();
+  const bookingsHoy     = useBookingsForDate(selectedDate);
+  const saleActions     = useSaleActions();
+  const productActions  = useProductActions();
+  const toast           = useToast();
+
+  const [selectedCategory, setSelectedCategory] = useState('todas');
+  const [search,           setSearch]           = useState('');
+  const [cart,             setCart]             = useState([]);
+  const [paymentMethod,    setPaymentMethod]    = useState('efectivo');
+  const [assignedBookingId,setAssignedBookingId]= useState('');
+
+  const [completedSale,    setCompletedSale]    = useState(null);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
 
-  const [salesHistory, setSalesHistory] = useState([
-    { id: 's1', time: '18:15 hs', items: '2x Gatorade 500ml', total: 5000, method: 'Efectivo', target: 'Mostrador' },
-    { id: 's2', time: '19:40 hs', items: '2x Stella Artois 1L + 1x Papas', total: 10600, method: 'Mercado Pago', target: 'Cancha 1 (20:00)' },
-    { id: 's3', time: '20:10 hs', items: '1x Fernet Branca + Coca', total: 9500, method: 'Transferencia', target: 'Cancha 2 (21:00)' }
-  ]);
+  // ─── Filtrado de productos ───────────────────────────────────────────────
+  const activeProducts = products.filter((p) => p.activo !== false);
 
-  const categories = ['Todas', 'Bebidas', 'Tragos', 'Snacks', 'Servicios'];
-
-  const filteredProducts = products.filter(p => {
-    if (selectedCategory !== 'Todas' && p.category !== selectedCategory) return false;
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+  const filteredProducts = activeProducts.filter((p) => {
+    if (selectedCategory !== 'todas' && p.categoria !== selectedCategory) return false;
+    if (search && !p.nombre.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
+  // ─── Carrito ─────────────────────────────────────────────────────────────
   const addToCart = (product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+    if (product.controlaStock && product.stock <= 0) {
+      toast.error(`${product.nombre}: sin stock`);
+      return;
+    }
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
       if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
+        return prev.map((item) =>
+          item.id === product.id ? { ...item, qty: item.qty + 1 } : item
+        );
       }
       return [...prev, { ...product, qty: 1 }];
     });
   };
 
   const updateCartQty = (productId, delta) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === productId) {
-        const newQty = item.qty + delta;
-        return newQty > 0 ? { ...item, qty: newQty } : null;
-      }
-      return item;
-    }).filter(Boolean));
+    setCart((prev) =>
+      prev
+        .map((item) => {
+          if (item.id !== productId) return item;
+          const newQty = item.qty + delta;
+          return newQty > 0 ? { ...item, qty: newQty } : null;
+        })
+        .filter(Boolean)
+    );
   };
 
   const removeFromCart = (productId) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
+    setCart((prev) => prev.filter((item) => item.id !== productId));
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-  const discountAmount = Math.round((subtotal * discountPercent) / 100);
-  const cartTotal = subtotal - discountAmount;
+  const cartTotal = cart.reduce((sum, item) => sum + item.precio * item.qty, 0);
 
+  // ─── Checkout ────────────────────────────────────────────────────────────
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
-    const assignedBooking = INITIAL_BOOKINGS.find(b => b.id === assignedBookingId);
+    const assignedBooking = bookingsHoy.find((b) => b.id === assignedBookingId) ?? null;
 
-    const newSale = {
-      id: 's_' + Date.now(),
-      time: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) + ' hs',
-      items: cart.map(i => `${i.qty}x ${i.name}`).join(', '),
-      total: cartTotal,
-      method: paymentMethod,
-      target: assignedBooking ? `Cancha (${assignedBooking.time})` : 'Mostrador'
+    const saleData = {
+      items: cart.map((i) => ({
+        productoId: i.id,
+        nombre:     i.nombre,
+        precioUnit: i.precio,
+        cantidad:   i.qty,
+      })),
+      total:       cartTotal,
+      metodoPago:  paymentMethod,
+      bookingId:   assignedBooking?.id ?? null,
+      clienteId:   assignedBooking?.clienteId ?? null,
+      canchaId:    assignedBooking?.canchaId ?? null,
+      anulada:     false,
     };
 
-    setSalesHistory([newSale, ...salesHistory]);
+    const result = saleActions.registrar(saleData);
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    // Armar objeto "legacy" compatible con VentaExitosaModal
+    const completedSaleObj = {
+      id:     result.data.id,
+      time:   timestampToTime(result.data.fechaHora) + ' hs',
+      items:  cart.map((i) => `${i.qty}x ${i.nombre}`).join(', '),
+      total:  cartTotal,
+      method: PAYMENT_METHODS.find((m) => m.key === paymentMethod)?.label ?? paymentMethod,
+      target: assignedBooking
+        ? `${assignedBooking.clienteNombre ?? 'Cancha'} (${assignedBooking.hora} hs)`
+        : 'Mostrador',
+    };
+
+    setCompletedSale(completedSaleObj);
     setCart([]);
-    setDiscountPercent(0);
     setAssignedBookingId('');
-    
-    // Open custom sale modal instead of alert()
-    setCompletedSale(newSale);
   };
 
-  const totalSalesToday = salesHistory.reduce((sum, s) => sum + s.total, 0);
+  // ─── Nuevo producto ───────────────────────────────────────────────────────
+  const handleAddProduct = (legacyProduct) => {
+    // NuevoProductoModal todavía habla el idioma viejo (Fase 5 lo reescribe)
+    const catMap = { Bebidas: 'bebidas', Tragos: 'tragos', Snacks: 'snacks', Servicios: 'servicios' };
+    const categoria = catMap[legacyProduct.category] ?? 'bebidas';
 
-  // Options for custom select "Asignar Venta A:"
-  const assignedOptions = [
-    { value: '', label: 'Cliente de Mostrador (Directo)', icon: Store },
-    ...INITIAL_BOOKINGS.map(b => ({
-      value: b.id,
-      label: `${b.clientName} (${b.time} hs)`,
-      icon: UserCheck
-    }))
+    const result = productActions.crear({
+      nombre:        legacyProduct.name,
+      categoria,
+      precio:        legacyProduct.price,
+      stock:         legacyProduct.stock,
+      stockMinimo:   6,
+      controlaStock: categoria !== 'servicios',
+      iconKey:       legacyProduct.iconKey ?? 'otro',
+      activo:        true,
+    });
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`Producto "${legacyProduct.name}" agregado`);
+    setIsAddProductOpen(false);
+  };
+
+  // ─── Historial de ventas del día ─────────────────────────────────────────
+  // Usar cajaHoy.ventas (del store, no un array local hardcodeado)
+  const salesHistory = (cajaHoy?.ventas ?? []).slice().reverse().slice(0, 8);
+
+  // ─── Selector de bookings para asignar ───────────────────────────────────
+  const bookingOptions = [
+    { value: '', label: 'Cliente de Mostrador (Directo)' },
+    ...bookingsHoy
+      .filter((b) => b.estado === 'reservado')
+      .map((b) => ({
+        value: b.id,
+        label: `${b.clienteNombre ?? 'Sin nombre'} · ${b.hora} hs`,
+      })),
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      
+
       {/* ─── Header ─── */}
       <div className="section-header">
         <div>
-          <h1 className="section-title">Caja & Cantina POS</h1>
+          <h1 className="section-title">Caja &amp; Cantina POS</h1>
           <p className="section-subtitle">Venta rápida de mostrador y facturación asignable a turnos</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button 
+          <button
             onClick={() => setIsAddProductOpen(true)}
             className="btn-secondary"
             style={{ padding: '8px 14px', fontSize: '0.82rem', gap: 6 }}
@@ -131,47 +216,49 @@ export default function CajaCantina({ products, onAddProduct }) {
           <div style={{
             padding: '8px 16px', borderRadius: 12,
             background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
-            display: 'flex', alignItems: 'center', gap: 12
+            display: 'flex', alignItems: 'center', gap: 12,
           }}>
             <div>
               <p style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Recaudación Hoy
               </p>
-              <p className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--green)', lineHeight: 1, marginTop: 2 }}>
-                ${totalSalesToday.toLocaleString('es-AR')}
+              <p className="font-heading num" style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--green)', lineHeight: 1, marginTop: 2 }}>
+                {formatARSCompact(cajaHoy?.totalVentas ?? 0)}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ─── Main POS Layout (Responsive POS Grid) ─── */}
-      <div className="pos-grid-container" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16 }}>
-        
-        {/* Left: Product Catalog */}
+      {/* ─── POS Grid ─── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16 }}>
+
+        {/* Left: Catálogo */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          
-          {/* Category Tabs & Search */}
-          <div style={{ 
-            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-            padding: '12px 14px', borderRadius: 14, background: 'var(--bg-card)', border: '1px solid var(--border-dim)'
+
+          {/* Category Tabs + Search */}
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+            justifyContent: 'space-between', gap: 10,
+            padding: '12px 14px', borderRadius: 14,
+            background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
           }}>
             <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%' }}>
-              {categories.map(cat => (
+              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                 <button
-                  key={cat}
-                  className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(cat)}
+                  key={key}
+                  className={`tab-btn ${selectedCategory === key ? 'active' : ''}`}
+                  onClick={() => setSelectedCategory(key)}
                 >
-                  {cat}
+                  {label}
                 </button>
               ))}
             </div>
 
             <div style={{ position: 'relative', width: 180, flexShrink: 0 }}>
               <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Buscar producto..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -181,28 +268,35 @@ export default function CajaCantina({ products, onAddProduct }) {
             </div>
           </div>
 
-          {/* Product Cards Grid with Lucide Vector Icons */}
+          {/* Product Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 10 }}>
-            {filteredProducts.map(prod => {
-              const ProdIcon = PRODUCT_ICONS[prod.id] || GlassWater;
-
+            {filteredProducts.length === 0 && (
+              <div style={{ gridColumn: '1/-1', padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                No hay productos en esta categoría.
+              </div>
+            )}
+            {filteredProducts.map((prod) => {
+              const ProdIcon = iconForProduct(prod);
+              const sinStock = prod.controlaStock && prod.stock <= 0;
               return (
-                <div 
+                <div
                   key={prod.id}
-                  onClick={() => addToCart(prod)}
+                  onClick={() => !sinStock && addToCart(prod)}
                   style={{
                     padding: '12px', borderRadius: 14,
                     background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
-                    cursor: 'pointer', transition: 'all 0.18s ease',
+                    cursor: sinStock ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.18s ease',
                     display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                    gap: 10
+                    gap: 10, opacity: sinStock ? 0.5 : 1,
                   }}
-                  onMouseEnter={e => {
+                  onMouseEnter={(e) => {
+                    if (sinStock) return;
                     e.currentTarget.style.borderColor = 'rgba(0,230,118,0.4)';
                     e.currentTarget.style.transform = 'translateY(-2px)';
                     e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3), 0 0 14px rgba(0,230,118,0.1)';
                   }}
-                  onMouseLeave={e => {
+                  onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = 'var(--border-dim)';
                     e.currentTarget.style.transform = 'none';
                     e.currentTarget.style.boxShadow = 'none';
@@ -213,27 +307,28 @@ export default function CajaCantina({ products, onAddProduct }) {
                       width: 36, height: 36, borderRadius: 10,
                       background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.25)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      marginBottom: 8
+                      marginBottom: 8,
                     }}>
                       <ProdIcon size={18} color="var(--green)" />
                     </div>
                     <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)', marginBottom: 3, lineHeight: 1.2 }}>
-                      {prod.name}
+                      {prod.nombre}
                     </h4>
                     <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                      {prod.category} · {prod.stock}u
+                      {CATEGORIAS[prod.categoria] ?? prod.categoria}
+                      {prod.controlaStock ? ` · ${prod.stock}u` : ''}
                     </p>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border-dim)' }}>
-                    <span className="font-heading" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '0.9rem' }}>
-                      ${prod.price.toLocaleString('es-AR')}
+                    <span className="font-heading num" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '0.9rem' }}>
+                      {formatARS(prod.precio)}
                     </span>
                     <div style={{
                       width: 26, height: 26, borderRadius: 8,
                       background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'var(--green)', fontWeight: 900, fontSize: '0.85rem'
+                      color: 'var(--green)', fontWeight: 900, fontSize: '0.85rem',
                     }}>
                       +
                     </div>
@@ -243,36 +338,50 @@ export default function CajaCantina({ products, onAddProduct }) {
             })}
           </div>
 
-          {/* Sales History Table */}
+          {/* Sales History */}
           <div style={{
             padding: '16px 18px', borderRadius: 14,
             background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
-            marginTop: 4
+            marginTop: 4,
           }}>
             <h3 className="font-heading" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
-              Últimas Ventas Realizadas
+              Últimas Ventas del Día
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {salesHistory.slice(0, 4).map(sale => (
-                <div key={sale.id} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '9px 12px', borderRadius: 10,
-                  background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
-                  fontSize: '0.78rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>{sale.time}</span>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sale.items}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{sale.method}</span>
-                    <span style={{ fontWeight: 800, color: 'var(--green)' }}>${sale.total.toLocaleString('es-AR')}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {salesHistory.length === 0 ? (
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
+                Sin ventas registradas hoy.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {salesHistory.map((sale) => {
+                  const hora = timestampToTime(sale.fechaHora);
+                  const itemsLabel = sale.items
+                    .map((i) => `${i.cantidad}x ${i.nombre}`)
+                    .join(', ');
+                  return (
+                    <div key={sale.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '9px 12px', borderRadius: 10,
+                      background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
+                      fontSize: '0.78rem',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>
+                          {hora} hs
+                        </span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {itemsLabel}
+                        </span>
+                      </div>
+                      <span className="num" style={{ fontWeight: 800, color: 'var(--green)', flexShrink: 0 }}>
+                        {formatARS(sale.total)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
         </div>
 
         {/* Right: Ticket / Cart */}
@@ -280,9 +389,10 @@ export default function CajaCantina({ products, onAddProduct }) {
           padding: '18px', borderRadius: 16,
           background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-          gap: 16
+          gap: 16,
         }}>
           <div>
+            {/* Cart header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border-dim)', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ShoppingBag size={16} color="var(--green)" />
@@ -290,56 +400,80 @@ export default function CajaCantina({ products, onAddProduct }) {
               </div>
               <span style={{
                 fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: 99,
-                background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)'
+                background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)',
               }}>
                 {cart.length} ítems
               </span>
             </div>
 
-            {/* Target Assignment (CustomSelect) */}
+            {/* Asignar a turno */}
             <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label" style={{ fontSize: '0.7rem' }}>Asignar Venta A:</label>
-              <CustomSelect
-                options={assignedOptions}
+              <select
                 value={assignedBookingId}
-                onChange={setAssignedBookingId}
-              />
+                onChange={(e) => setAssignedBookingId(e.target.value)}
+                className="form-input"
+                style={{ cursor: 'pointer' }}
+              >
+                {bookingOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
 
-            {/* Cart Items */}
+            {/* Cart items */}
             {cart.length === 0 ? (
               <div style={{ padding: '24px 10px', textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                 Hacé clic en los productos del catálogo para agregarlos al ticket.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 2 }}>
-                {cart.map(item => (
+                {cart.map((item) => (
                   <div key={item.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '9px 10px', borderRadius: 10,
-                    background: 'var(--bg-surface)', border: '1px solid var(--border-dim)'
+                    background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
                   }}>
                     <div style={{ flex: 1, minWidth: 0, paddingRight: 6 }}>
-                      <p style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--green)', fontWeight: 700, marginTop: 1 }}>${item.price.toLocaleString('es-AR')} c/u</p>
+                      <p style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.nombre}
+                      </p>
+                      <p className="num" style={{ fontSize: '0.7rem', color: 'var(--green)', fontWeight: 700, marginTop: 1 }}>
+                        {formatARS(item.precio)} c/u
+                      </p>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                      <button onClick={() => updateCartQty(item.id, -1)} style={{
-                        width: 24, height: 24, borderRadius: 6, background: 'var(--bg-card-hover)',
-                        border: '1px solid var(--border-dim)', color: 'var(--text-primary)', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800
-                      }}>-</button>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-primary)', width: 14, textAlign: 'center' }}>{item.qty}</span>
-                      <button onClick={() => updateCartQty(item.id, 1)} style={{
-                        width: 24, height: 24, borderRadius: 6, background: 'rgba(0,230,118,0.15)',
-                        border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800
-                      }}>+</button>
-                      <button onClick={() => removeFromCart(item.id)} style={{
-                        background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer',
-                        padding: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 2
-                      }}>
+                      <button
+                        onClick={() => updateCartQty(item.id, -1)}
+                        style={{
+                          width: 24, height: 24, borderRadius: 6, background: 'var(--bg-card-hover)',
+                          border: '1px solid var(--border-dim)', color: 'var(--text-primary)', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800,
+                        }}
+                      >
+                        <Minus size={10} />
+                      </button>
+                      <span className="num" style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-primary)', width: 14, textAlign: 'center' }}>
+                        {item.qty}
+                      </span>
+                      <button
+                        onClick={() => updateCartQty(item.id, 1)}
+                        style={{
+                          width: 24, height: 24, borderRadius: 6, background: 'rgba(0,230,118,0.15)',
+                          border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800,
+                        }}
+                      >
+                        <Plus size={10} />
+                      </button>
+                      <button
+                        onClick={() => removeFromCart(item.id)}
+                        style={{
+                          background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer',
+                          padding: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 2,
+                        }}
+                      >
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -349,26 +483,27 @@ export default function CajaCantina({ products, onAddProduct }) {
             )}
           </div>
 
-          {/* Payment Method & Total */}
+          {/* Payment method + Total + Checkout */}
           <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-dim)', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label" style={{ fontSize: '0.7rem' }}>Medio de Cobro</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                {['Efectivo', 'Mercado Pago', 'Transferencia'].map(m => (
-                  <button 
-                    key={m}
+                {PAYMENT_METHODS.map((m) => (
+                  <button
+                    key={m.key}
                     type="button"
-                    onClick={() => setPaymentMethod(m)}
+                    onClick={() => setPaymentMethod(m.key)}
                     style={{
                       padding: '7px 4px', borderRadius: 8, fontSize: '0.72rem', fontWeight: 800,
-                      cursor: 'pointer', transition: 'all 0.15s ease', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
-                      background: paymentMethod === m ? 'rgba(0,230,118,0.15)' : 'var(--bg-input)',
-                      border: `1px solid ${paymentMethod === m ? 'rgba(0,230,118,0.4)' : 'var(--border-dim)'}`,
-                      color: paymentMethod === m ? 'var(--green)' : 'var(--text-muted)',
-                      boxShadow: paymentMethod === m ? '0 0 10px rgba(0,230,118,0.15)' : 'none'
+                      cursor: 'pointer', transition: 'all 0.15s ease',
+                      textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
+                      background: paymentMethod === m.key ? 'rgba(0,230,118,0.15)' : 'var(--bg-input)',
+                      border: `1px solid ${paymentMethod === m.key ? 'rgba(0,230,118,0.4)' : 'var(--border-dim)'}`,
+                      color: paymentMethod === m.key ? 'var(--green)' : 'var(--text-muted)',
+                      boxShadow: paymentMethod === m.key ? '0 0 10px rgba(0,230,118,0.15)' : 'none',
                     }}
                   >
-                    {m === 'Mercado Pago' ? 'MP' : m}
+                    {m.label}
                   </button>
                 ))}
               </div>
@@ -376,12 +511,12 @@ export default function CajaCantina({ products, onAddProduct }) {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Total Ticket:</span>
-              <span className="font-heading" style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--green)' }}>
-                ${cartTotal.toLocaleString('es-AR')}
+              <span className="font-heading num" style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--green)' }}>
+                {formatARS(cartTotal)}
               </span>
             </div>
 
-            <button 
+            <button
               disabled={cart.length === 0}
               onClick={handleCheckout}
               className="btn-primary"
@@ -390,24 +525,20 @@ export default function CajaCantina({ products, onAddProduct }) {
               <CheckCircle2 size={16} style={{ color: 'var(--on-accent)' }} /> Procesar Cobro
             </button>
           </div>
-
         </div>
-
       </div>
 
-      {/* Sale Success Modal (Replaces native browser alert()) */}
+      {/* ─── Modales ─── */}
       <VentaExitosaModal
         sale={completedSale}
         onClose={() => setCompletedSale(null)}
       />
 
-      {/* Create Product Modal */}
       <NuevoProductoModal
         isOpen={isAddProductOpen}
         onClose={() => setIsAddProductOpen(false)}
-        onAddProduct={onAddProduct}
+        onAddProduct={handleAddProduct}
       />
-
     </div>
   );
 }
