@@ -1,12 +1,12 @@
 # TuCan — Handoff para continuar el trabajo
 
-Estado real del repo al momento de escribir esto: **Fases 0, 0.5, 1 y 2 completas.**
-Build limpio, 70/70 tests verdes, verificado en Chrome real. Nada sin commitear.
-Podés arrancar de acá con otra IA o vos mismo.
+Estado real del repo al momento de escribir esto: **Fases 0, 0.5, 1 y 2 completas y
+commiteadas.** Build limpio, 70/70 tests verdes, verificado en Chrome real.
+Nada sin commitear. Podés arrancar de acá con otra IA o vos mismo.
 
 ```bash
 git log --oneline
-# (próximo) feat(fase-2): TurnosFijos + CajaCantina + Configuracion leen del store
+# 44407ac feat(fase-2): TurnosFijos + CajaCantina + Configuracion leen del store
 # 1976579 feat(fase-1): store central con persistencia en localStorage
 # 7f9cdca feat(fase-0.5): nuevo sistema de diseno Deep Pitch
 # 7003bae chore(fase-0): limpieza, tooling y capa de utilidades
