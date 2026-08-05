@@ -13,10 +13,10 @@ export default function Toast({ message, type = 'success', onClose, duration = 3
   if (!message) return null;
 
   const config = {
-    success: { icon: CheckCircle2, color: '#00E676', bg: 'rgba(0,230,118,0.12)', border: 'rgba(0,230,118,0.35)' },
-    error:   { icon: AlertCircle,  color: '#FF4F4F', bg: 'rgba(255,79,79,0.12)', border: 'rgba(255,79,79,0.35)' },
-    info:    { icon: Info,         color: '#00B0FF', bg: 'rgba(0,176,255,0.12)', border: 'rgba(0,176,255,0.35)' },
-  }[type] || { icon: CheckCircle2, color: '#00E676', bg: 'rgba(0,230,118,0.12)', border: 'rgba(0,230,118,0.35)' };
+    success: { icon: CheckCircle2, color: 'var(--green)', bg: 'rgba(0,230,118,0.12)', border: 'rgba(0,230,118,0.35)' },
+    error:   { icon: AlertCircle,  color: 'var(--red)', bg: 'rgba(255,79,79,0.12)', border: 'rgba(255,79,79,0.35)' },
+    info:    { icon: Info,         color: 'var(--blue)', bg: 'rgba(0,176,255,0.12)', border: 'rgba(0,176,255,0.35)' },
+  }[type] || { icon: CheckCircle2, color: 'var(--green)', bg: 'rgba(0,230,118,0.12)', border: 'rgba(0,230,118,0.35)' };
 
   const IconComponent = config.icon;
 
@@ -46,7 +46,7 @@ export default function Toast({ message, type = 'success', onClose, duration = 3
         <IconComponent size={18} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: '0.84rem', fontWeight: 700, color: '#fff', lineHeight: 1.3 }}>
+        <p style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
           {message}
         </p>
       </div>

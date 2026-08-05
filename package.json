@@ -11,6 +11,7 @@
     "lint:fix": "oxlint src --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"*.{json,md,html}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,css}\"",
+    "shots": "node tools/shot.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run lint && npm run test && npm run build"
@@ -27,6 +28,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "oxlint": "^1.77.0",
     "prettier": "^3.9.6",
+    "puppeteer-core": "^25.5.0",
     "tailwindcss": "^4.3.3",
     "vite": "^6.0.0",
     "vitest": "^4.1.10"

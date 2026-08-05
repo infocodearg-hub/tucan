@@ -43,10 +43,10 @@ export default function NuevoClienteModal({ isOpen, onClose, onAddClient }) {
               background: 'rgba(0,176,255,0.12)', border: '1px solid rgba(0,176,255,0.3)',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <UserPlus size={18} color="#00B0FF" />
+              <UserPlus size={18} color="var(--blue)" />
             </div>
             <div>
-              <h3 className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 900, color: '#fff' }}>
+              <h3 className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
                 Registrar Nuevo Cliente / Jugador
               </h3>
               <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Agregá un jugador a la base de datos CRM</p>
@@ -91,9 +91,9 @@ export default function NuevoClienteModal({ isOpen, onClose, onAddClient }) {
               <label className="form-label">Categoría / Badge Inicial</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {[
-                  { id: 'Jugador VIP ⭐️', label: 'VIP', icon: Crown, color: '#FFB300' },
-                  { id: 'Capitán Fijo 🛡️', label: 'Capitán', icon: ShieldCheck, color: '#00B0FF' },
-                  { id: 'Cliente Fiel 🌟', label: 'Regular', icon: Award, color: '#00E676' },
+                  { id: 'Jugador VIP ⭐️', label: 'VIP', icon: Crown, color: 'var(--amber)' },
+                  { id: 'Capitán Fijo 🛡️', label: 'Capitán', icon: ShieldCheck, color: 'var(--blue)' },
+                  { id: 'Cliente Fiel 🌟', label: 'Regular', icon: Award, color: 'var(--green)' },
                 ].map(b => (
                   <button
                     key={b.id}
@@ -119,7 +119,7 @@ export default function NuevoClienteModal({ isOpen, onClose, onAddClient }) {
                 Cancelar
               </button>
               <button type="submit" className="btn-primary" style={{ padding: '9px 20px' }}>
-                <Check size={15} style={{ color: '#040A06' }} /> Guardar Cliente
+                <Check size={15} style={{ color: 'var(--on-accent)' }} /> Guardar Cliente
               </button>
             </div>
 

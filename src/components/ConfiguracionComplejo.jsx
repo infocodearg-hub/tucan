@@ -5,14 +5,14 @@ import {
 } from 'lucide-react';
 import { COMPLEX_INFO } from '../data/mockData';
 
-function Section({ title, icon, iconColor = '#00E676', children }) {
+function Section({ title, icon, iconColor = 'var(--green)', children }) {
   return (
     <div style={{ padding: '20px', borderRadius: 14, background: 'var(--bg-card)', border: '1px solid var(--border-dim)', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 14, borderBottom: '1px solid var(--border-dim)' }}>
         <div style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${iconColor}18`, border: `1px solid ${iconColor}33`, color: iconColor }}>
           {icon}
         </div>
-        <h3 className="font-heading" style={{ fontWeight: 800, color: '#fff', fontSize: '0.95rem' }}>{title}</h3>
+        <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{title}</h3>
       </div>
       {children}
     </div>
@@ -24,7 +24,7 @@ function ToggleRow({ label, sub, defaultOn = false }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
       <div>
-        <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>{label}</p>
+        <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{label}</p>
         {sub && <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{sub}</p>}
       </div>
       <label className="toggle-switch" style={{ cursor: 'pointer' }}>
@@ -55,7 +55,7 @@ export default function ConfiguracionComplejo() {
           <p className="section-subtitle">Datos del complejo · Tarifas · Integraciones · Bot de WhatsApp</p>
         </div>
         <button onClick={handleSave} className="btn-primary" style={{ padding: '9px 20px' }}>
-          {saved ? <><Check size={15} style={{ color: '#040A06' }} /> Guardado!</> : <><Save size={15} style={{ color: '#040A06' }} /> Guardar Cambios</>}
+          {saved ? <><Check size={15} style={{ color: 'var(--on-accent)' }} /> Guardado!</> : <><Save size={15} style={{ color: 'var(--on-accent)' }} /> Guardar Cambios</>}
         </button>
       </div>
 
@@ -63,7 +63,7 @@ export default function ConfiguracionComplejo() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
 
           {/* ─── Datos Generales ─── */}
-          <Section title="Datos del Complejo" icon={<Building2 size={15} />} iconColor="#00E676">
+          <Section title="Datos del Complejo" icon={<Building2 size={15} />} iconColor="var(--green)">
             <div className="form-group">
               <label className="form-label">Nombre Comercial</label>
               <input
@@ -108,12 +108,12 @@ export default function ConfiguracionComplejo() {
           </Section>
 
           {/* ─── Tarifas por Cancha ─── */}
-          <Section title="Tarifas por Cancha" icon={<Zap size={15} />} iconColor="#C8FF00">
+          <Section title="Tarifas por Cancha" icon={<Zap size={15} />} iconColor="var(--volt)">
             {config.canchas.map(c => (
               <div key={c.id} style={{ padding: '12px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-dim)`, borderLeft: `3px solid ${c.color}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, display: 'inline-block' }} />
-                  <span style={{ fontWeight: 700, color: '#fff', fontSize: '0.85rem' }}>{c.name}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem' }}>{c.name}</span>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>· {c.type}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -143,12 +143,12 @@ export default function ConfiguracionComplejo() {
           </Section>
 
           {/* ─── Mercado Pago & CBU ─── */}
-          <Section title="Cobros & Mercado Pago" icon={<CreditCard size={15} />} iconColor="#00B0FF">
+          <Section title="Cobros & Mercado Pago" icon={<CreditCard size={15} />} iconColor="var(--blue)">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 11, background: 'rgba(0,230,118,0.07)', border: '1px solid rgba(0,230,118,0.25)' }}>
-              <ShieldCheck size={18} color="#00E676" style={{ flexShrink: 0 }} />
+              <ShieldCheck size={18} color="var(--green)" style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>Mercado Pago Integrado</p>
-                <p style={{ fontSize: '0.72rem', color: '#00E676', marginTop: 1 }}>Webhooks & cobros automáticos activos</p>
+                <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>Mercado Pago Integrado</p>
+                <p style={{ fontSize: '0.72rem', color: 'var(--green)', marginTop: 1 }}>Webhooks & cobros automáticos activos</p>
               </div>
               <span className="badge badge-available" style={{ marginLeft: 'auto', flexShrink: 0 }}>ONLINE</span>
             </div>
@@ -176,12 +176,12 @@ export default function ConfiguracionComplejo() {
             </div>
 
             <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              ⚡ <strong style={{ color: '#fff' }}>OCR / Visión IA:</strong> El bot lee capturas de pago y verifica CBU + monto en segundos, confirmando la seña sin intervención manual.
+              ⚡ <strong style={{ color: 'var(--text-primary)' }}>OCR / Visión IA:</strong> El bot lee capturas de pago y verifica CBU + monto en segundos, confirmando la seña sin intervención manual.
             </div>
           </Section>
 
           {/* ─── Bot & Notificaciones ─── */}
-          <Section title="Bot IA & Notificaciones" icon={<Bot size={15} />} iconColor="#B988FC">
+          <Section title="Bot IA & Notificaciones" icon={<Bot size={15} />} iconColor="var(--purple)">
             <ToggleRow
               label="WhatsApp Bot Activo"
               sub="El bot responde automáticamente a consultas y reservas"

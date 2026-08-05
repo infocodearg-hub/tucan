@@ -65,7 +65,7 @@ export default function TurnosFijos() {
           <p className="section-subtitle">Equipos abonados con reserva automática semanal</p>
         </div>
         <button className="btn-primary" onClick={() => setShowModal(true)} style={{ padding: '9px 18px' }}>
-          <Plus size={15} style={{ color: '#040A06' }} />
+          <Plus size={15} style={{ color: 'var(--on-accent)' }} />
           Nuevo Turno Fijo
         </button>
       </div>
@@ -73,10 +73,10 @@ export default function TurnosFijos() {
       {/* Stats Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
         {[
-          { label: 'Total Equipos', value: turnos.length,   color: '#B988FC', sub: 'activos esta semana' },
-          { label: 'Al Día',        value: upToDate,        color: '#00E676', sub: 'abono mensual cobrado' },
-          { label: 'Pendientes',    value: pending,         color: pending > 0 ? '#FFB300' : '#00E676', sub: 'por cobrar este mes' },
-          { label: 'Ingresos Mes',  value: `$${(monthlyTotal/1000).toFixed(0)}k`, color: '#00B0FF', sub: 'ingresos recurrentes' },
+          { label: 'Total Equipos', value: turnos.length,   color: 'var(--purple)', sub: 'activos esta semana' },
+          { label: 'Al Día',        value: upToDate,        color: 'var(--green)', sub: 'abono mensual cobrado' },
+          { label: 'Pendientes',    value: pending,         color: pending > 0 ? 'var(--amber)' : 'var(--green)', sub: 'por cobrar este mes' },
+          { label: 'Ingresos Mes',  value: `$${(monthlyTotal/1000).toFixed(0)}k`, color: 'var(--blue)', sub: 'ingresos recurrentes' },
         ].map((s, i) => (
           <div key={i} style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--bg-card)', border: '1px solid var(--border-dim)' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{s.label}</p>
@@ -105,19 +105,19 @@ export default function TurnosFijos() {
                     <span style={{
                       padding: '3px 10px', borderRadius: 99,
                       background: 'rgba(185,136,252,0.12)', border: '1px solid rgba(185,136,252,0.3)',
-                      color: '#B988FC', fontSize: '0.78rem', fontWeight: 800
+                      color: 'var(--purple)', fontSize: '0.78rem', fontWeight: 800
                     }}>
                       {tf.day}s · {tf.time}
                     </span>
                   </div>
-                  <h3 className="font-heading" style={{ fontWeight: 800, color: '#fff', fontSize: '1rem' }}>{tf.teamName}</h3>
+                  <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem' }}>{tf.teamName}</h3>
                   <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 3 }}>{tf.cancha}</p>
                 </div>
                 <span style={{
                   padding: '4px 10px', borderRadius: 99, flexShrink: 0,
                   background: ok ? 'rgba(0,230,118,0.1)' : 'rgba(255,179,0,0.1)',
                   border: `1px solid ${ok ? 'rgba(0,230,118,0.3)' : 'rgba(255,179,0,0.3)'}`,
-                  color: ok ? '#00E676' : '#FFB300',
+                  color: ok ? 'var(--green)' : 'var(--amber)',
                   fontSize: '0.72rem', fontWeight: 800
                 }}>
                   {ok ? '✓ Al día' : '⚠ Pendiente'}
@@ -127,10 +127,10 @@ export default function TurnosFijos() {
               {/* Captain */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <User size={13} color="#00E676" /> {tf.captain}
+                  <User size={13} color="var(--green)" /> {tf.captain}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Phone size={13} color="#00B0FF" /> {tf.phone}
+                  <Phone size={13} color="var(--blue)" /> {tf.phone}
                 </span>
               </div>
 
@@ -144,12 +144,12 @@ export default function TurnosFijos() {
                   <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
                     Abono Mensual
                   </p>
-                  <p className="font-heading" style={{ fontWeight: 900, color: '#00E676', fontSize: '1.05rem' }}>
+                  <p className="font-heading" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '1.05rem' }}>
                     ${tf.monthlyPrice.toLocaleString('es-AR')}/mes
                   </p>
                 </div>
                 {ok ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.78rem', fontWeight: 800, color: '#00E676' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.78rem', fontWeight: 800, color: 'var(--green)' }}>
                     <CheckCircle2 size={15} /> Cobrado
                   </span>
                 ) : (
@@ -158,7 +158,7 @@ export default function TurnosFijos() {
                     className="btn-primary"
                     style={{ padding: '7px 14px', fontSize: '0.78rem' }}
                   >
-                    <DollarSign size={13} style={{ color: '#040A06' }} /> Cobrar
+                    <DollarSign size={13} style={{ color: 'var(--on-accent)' }} /> Cobrar
                   </button>
                 )}
               </div>
@@ -174,10 +174,10 @@ export default function TurnosFijos() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border-dim)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(185,136,252,0.12)', border: '1px solid rgba(185,136,252,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Repeat size={17} color="#B988FC" />
+                  <Repeat size={17} color="var(--purple)" />
                 </div>
                 <div>
-                  <h3 className="font-heading" style={{ fontWeight: 800, color: '#fff' }}>Nuevo Turno Fijo</h3>
+                  <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>Nuevo Turno Fijo</h3>
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Reserva automática semanal</p>
                 </div>
               </div>
@@ -255,7 +255,7 @@ export default function TurnosFijos() {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 14, borderTop: '1px solid var(--border-dim)' }}>
                   <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>
                   <button type="submit" className="btn-primary">
-                    <CheckCircle2 size={15} style={{ color: '#040A06' }} /> Guardar Turno Fijo
+                    <CheckCircle2 size={15} style={{ color: 'var(--on-accent)' }} /> Guardar Turno Fijo
                   </button>
                 </div>
               </div>

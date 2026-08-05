@@ -28,7 +28,7 @@ function ChatBubble({ msg }) {
       <div style={{
         textAlign: 'center', padding: '8px 14px', borderRadius: 10,
         background: 'rgba(255,179,0,0.08)', border: '1px solid rgba(255,179,0,0.25)',
-        fontSize: '0.76rem', color: '#FFB300', fontWeight: 600
+        fontSize: '0.76rem', color: 'var(--amber)', fontWeight: 600
       }}>
         {msg.text}
       </div>
@@ -44,14 +44,14 @@ function ChatBubble({ msg }) {
           background: 'var(--bg-card-hover)', border: '1px solid var(--border-mid)',
           borderRadius: '14px 14px 14px 4px', color: 'var(--text-primary)',
         } : {
-          background: 'linear-gradient(135deg, #00E676 0%, #00C044 100%)',
+          background: 'linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%)',
           borderRadius: '14px 14px 4px 14px',
-          color: '#040A06', fontWeight: 600,
+          color: 'var(--on-accent)', fontWeight: 600,
           boxShadow: '0 3px 14px rgba(0,230,118,0.3)'
         })
       }}>
         {isBot && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5, fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#00E676' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5, fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--green)' }}>
             <Bot size={10} /> TuCan IA
           </div>
         )}
@@ -108,7 +108,7 @@ export default function WhatsappCopilot() {
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '6px 14px', borderRadius: 99,
           background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.3)',
-          fontSize: '0.78rem', fontWeight: 800, color: '#00E676'
+          fontSize: '0.78rem', fontWeight: 800, color: 'var(--green)'
         }}>
           <span className="pulse-dot" />
           Bot activo · 34 conversaciones hoy
@@ -122,33 +122,33 @@ export default function WhatsappCopilot() {
         border: '1px solid rgba(0,230,118,0.2)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <Sparkles size={16} color="#C8FF00" />
-          <h3 className="font-heading" style={{ fontWeight: 800, color: '#fff', fontSize: '0.95rem' }}>
+          <Sparkles size={16} color="var(--volt)" />
+          <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
             TuCan IA vs Tuki
           </h3>
           <span style={{
             padding: '2px 9px', borderRadius: 99, fontSize: '0.65rem', fontWeight: 900,
-            background: 'rgba(200,255,0,0.1)', border: '1px solid rgba(200,255,0,0.3)', color: '#C8FF00'
+            background: 'rgba(200,255,0,0.1)', border: '1px solid rgba(200,255,0,0.3)', color: 'var(--volt)'
           }}>
             🔥 SUPERIOR
           </span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
           <div style={{ padding: '14px', borderRadius: 12, background: 'rgba(255,79,79,0.05)', border: '1px solid rgba(255,79,79,0.3)' }}>
-            <p style={{ fontSize: '0.76rem', fontWeight: 800, color: '#FF4F4F', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>❌ Tuki · Bot Rígido</p>
+            <p style={{ fontSize: '0.76rem', fontWeight: 800, color: 'var(--red)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>❌ Tuki · Bot Rígido</p>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Bot: <em style={{ color: '#fff' }}>"Elegí: 1. 19hs / 2. 20hs"</em><br />
-              Cliente: <em style={{ color: '#fff' }}>"A las 8 de la noche"</em><br />
-              Bot: <span style={{ color: '#FF4F4F', fontWeight: 800 }}>"No te entiendo. Elegí 1 o 2."</span><br />
-              <strong style={{ color: '#fff', fontSize: '0.76rem' }}>→ El cliente abandona la conversación.</strong>
+              Bot: <em style={{ color: 'var(--text-primary)' }}>"Elegí: 1. 19hs / 2. 20hs"</em><br />
+              Cliente: <em style={{ color: 'var(--text-primary)' }}>"A las 8 de la noche"</em><br />
+              Bot: <span style={{ color: 'var(--red)', fontWeight: 800 }}>"No te entiendo. Elegí 1 o 2."</span><br />
+              <strong style={{ color: 'var(--text-primary)', fontSize: '0.76rem' }}>→ El cliente abandona la conversación.</strong>
             </p>
           </div>
           <div style={{ padding: '14px', borderRadius: 12, background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.3)' }}>
-            <p style={{ fontSize: '0.76rem', fontWeight: 800, color: '#00E676', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>✅ TuCan · NLU Natural + OCR</p>
+            <p style={{ fontSize: '0.76rem', fontWeight: 800, color: 'var(--green)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>✅ TuCan · NLU Natural + OCR</p>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              Cliente: <em style={{ color: '#fff' }}>"¿Tienen la cancha 1 a las 8 de la noche?"</em><br />
-              TuCan: <span style={{ color: '#00E676', fontWeight: 700 }}>"¡Hola! Sí, libre. Seña: $13.000 → MARACANA.FUTBOL.MP"</span><br />
-              <strong style={{ color: '#fff', fontSize: '0.76rem' }}>→ Confirmación automática al recibir la foto.</strong>
+              Cliente: <em style={{ color: 'var(--text-primary)' }}>"¿Tienen la cancha 1 a las 8 de la noche?"</em><br />
+              TuCan: <span style={{ color: 'var(--green)', fontWeight: 700 }}>"¡Hola! Sí, libre. Seña: $13.000 → MARACANA.FUTBOL.MP"</span><br />
+              <strong style={{ color: 'var(--text-primary)', fontSize: '0.76rem' }}>→ Confirmación automática al recibir la foto.</strong>
             </p>
           </div>
         </div>
@@ -161,10 +161,10 @@ export default function WhatsappCopilot() {
         <div style={{ padding: '16px', borderRadius: 14, background: 'var(--bg-card)', border: '1px solid var(--border-dim)', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border-dim)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <MessageSquare size={14} color="#00E676" />
-              <span style={{ fontWeight: 800, fontSize: '0.85rem', color: '#fff' }}>Conversaciones</span>
+              <MessageSquare size={14} color="var(--green)" />
+              <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-primary)' }}>Conversaciones</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: '#00E676', fontWeight: 700 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--green)', fontWeight: 700 }}>
               <span className="pulse-dot" style={{ width: 6, height: 6 }} />
               En Vivo
             </div>
@@ -188,12 +188,12 @@ export default function WhatsappCopilot() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#fff' }}>{chat.clientName || 'Cliente'}</span>
+                    <span style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-primary)' }}>{chat.clientName || 'Cliente'}</span>
                     <span style={{
                       fontSize: '0.62rem', padding: '2px 7px', borderRadius: 99, fontWeight: 800,
                       background: chat.botStatus === 'auto' ? 'rgba(0,230,118,0.12)' : 'rgba(255,179,0,0.12)',
                       border: `1px solid ${chat.botStatus === 'auto' ? 'rgba(0,230,118,0.3)' : 'rgba(255,179,0,0.3)'}`,
-                      color: chat.botStatus === 'auto' ? '#00E676' : '#FFB300'
+                      color: chat.botStatus === 'auto' ? 'var(--green)' : 'var(--amber)'
                     }}>
                       {chat.botStatus === 'auto' ? '🤖 IA' : '⚠️ Humano'}
                     </span>
@@ -207,8 +207,8 @@ export default function WhatsappCopilot() {
           </div>
 
           <div style={{ marginTop: 'auto', padding: '10px 12px', borderRadius: 10, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)', fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            ⚡ <strong style={{ color: '#fff' }}>WhatsApp Business API</strong> conectado con{' '}
-            <span style={{ color: '#00E676' }}>Complejo El Maracaná</span>
+            ⚡ <strong style={{ color: 'var(--text-primary)' }}>WhatsApp Business API</strong> conectado con{' '}
+            <span style={{ color: 'var(--green)' }}>Complejo El Maracaná</span>
           </div>
         </div>
 
@@ -223,12 +223,12 @@ export default function WhatsappCopilot() {
                   width: 38, height: 38, borderRadius: 11,
                   background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 900, color: '#00E676', fontSize: '0.78rem', fontFamily: 'Outfit,sans-serif'
+                  fontWeight: 900, color: 'var(--green)', fontSize: '0.78rem', fontFamily: 'Outfit,sans-serif'
                 }}>
                   {(activeChat.clientName || 'CL').substring(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <h4 className="font-heading" style={{ fontWeight: 800, color: '#fff', fontSize: '0.9rem' }}>{activeChat.clientName}</h4>
+                  <h4 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{activeChat.clientName}</h4>
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{activeChat.phone}</p>
                 </div>
               </div>
@@ -241,7 +241,7 @@ export default function WhatsappCopilot() {
                   transition: 'all 0.2s ease',
                   background: activeChat.botStatus === 'auto' ? 'rgba(0,230,118,0.12)' : 'rgba(255,179,0,0.12)',
                   border: `1px solid ${activeChat.botStatus === 'auto' ? 'rgba(0,230,118,0.4)' : 'rgba(255,179,0,0.4)'}`,
-                  color: activeChat.botStatus === 'auto' ? '#00E676' : '#FFB300'
+                  color: activeChat.botStatus === 'auto' ? 'var(--green)' : 'var(--amber)'
                 }}
               >
                 {activeChat.botStatus === 'auto' ? <><Bot size={14} /> Modo IA Auto</> : <><User size={14} /> Tomar Control</>}
@@ -265,7 +265,7 @@ export default function WhatsappCopilot() {
                 style={{ flex: 1, padding: '10px 14px' }}
               />
               <button type="submit" className="btn-primary" style={{ padding: '10px 16px', flexShrink: 0 }}>
-                <Send size={14} style={{ color: '#040A06' }} />
+                <Send size={14} style={{ color: 'var(--on-accent)' }} />
                 <span className="hidden sm:inline">Probar IA</span>
               </button>
             </form>

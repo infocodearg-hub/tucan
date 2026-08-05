@@ -43,9 +43,9 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
   }, []);
 
   const notifications = [
-    { id: 1, icon: '💬', text: 'Nuevo turno agendado por cliente', sub: 'Marcos Benítez · Cancha 1 19:00 hs', read: false, color: '#00E676' },
-    { id: 2, icon: '💰', text: 'Seña recibida $13.000', sub: 'Mercado Pago · Cancha 1 20:00 hs', read: false, color: '#00B0FF' },
-    { id: 3, icon: '⚠️', text: 'Turno sin seña a las 22:00 hs', sub: 'Santiago Ledesma · Cancha 2', read: true, color: '#FFB300' },
+    { id: 1, icon: '💬', text: 'Nuevo turno agendado por cliente', sub: 'Marcos Benítez · Cancha 1 19:00 hs', read: false, color: 'var(--green)' },
+    { id: 2, icon: '💰', text: 'Seña recibida $13.000', sub: 'Mercado Pago · Cancha 1 20:00 hs', read: false, color: 'var(--blue)' },
+    { id: 3, icon: '⚠️', text: 'Turno sin seña a las 22:00 hs', sub: 'Santiago Ledesma · Cancha 2', read: true, color: 'var(--amber)' },
   ];
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -63,7 +63,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
         >
           <div style={{
             width: 38, height: 38, borderRadius: 11,
-            background: 'linear-gradient(140deg, #00E676 0%, #00A040 100%)',
+            background: 'linear-gradient(140deg, var(--green) 0%, var(--green-dark) 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 0 20px rgba(0,230,118,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
             flexShrink: 0
@@ -72,14 +72,14 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
           </div>
           <div className="hidden sm:block">
             <div className="flex items-center gap-1.5">
-              <span className="font-heading font-extrabold text-xl tracking-tight" style={{ color: '#fff', lineHeight: 1 }}>
-                Tu<span style={{ color: '#00E676' }}>Can</span>
+              <span className="font-heading font-extrabold text-xl tracking-tight" style={{ color: 'var(--text-primary)', lineHeight: 1 }}>
+                Tu<span style={{ color: 'var(--green)' }}>Can</span>
               </span>
               <span style={{
                 fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.08em',
                 padding: '2px 7px', borderRadius: 99,
                 background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
-                color: '#00E676', textTransform: 'uppercase', lineHeight: 1.5
+                color: 'var(--green)', textTransform: 'uppercase', lineHeight: 1.5
               }}>PRO</span>
             </div>
             <p className="hidden lg:block" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 1 }}>
@@ -91,20 +91,19 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
         {/* Separator */}
         <div style={{ width: 1, height: 28, background: 'var(--border-dim)', flexShrink: 0 }} className="hidden md:block" />
 
-        {/* Venue Selector */}
-        <button style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px',
-          borderRadius: 'var(--radius-md)', background: 'var(--bg-surface)',
-          border: '1px solid var(--border-dim)', cursor: 'pointer',
-          transition: 'all 0.2s ease', maxWidth: 260
-        }}
+        {/* Venue Selector — sin `display` inline: un display inline le gana a
+            `.hidden` de Tailwind y el botón se superponía con el CTA en mobile */}
+        <button
+          style={{
+            alignItems: 'center', gap: 8, padding: '7px 12px',
+            borderRadius: 'var(--radius-md)', background: 'var(--bg-surface)',
+            border: '1px solid var(--border-dim)', maxWidth: 280, minWidth: 0
+          }}
           className="hidden lg:flex hover-venue-btn"
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,230,118,0.35)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-dim)'; }}
         >
-          <Building2 size={15} color="#00E676" style={{ flexShrink: 0 }} />
+          <Building2 size={15} color="var(--green)" style={{ flexShrink: 0 }} />
           <div className="min-w-0">
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {COMPLEX_INFO.name}
             </span>
           </div>
@@ -126,7 +125,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
             boxShadow: 'var(--shadow-sm)'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
             <Clock size={13} color="var(--text-muted)" />
             <span>{time} hs</span>
           </div>
@@ -137,7 +136,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '2px 8px', borderRadius: 99,
             background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
-            fontSize: '0.74rem', fontWeight: 800, color: '#00E676'
+            fontSize: '0.74rem', fontWeight: 800, color: 'var(--green)'
           }}>
             <span className="pulse-dot" style={{ width: 6, height: 6 }} />
             <span>Bot activo</span>
@@ -146,14 +145,14 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
 
         {/* + Nuevo Turno */}
         <button id="btn-nuevo-turno" onClick={onOpenNuevoTurno} className="btn-primary" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-          <PlusCircle size={15} style={{ color: '#040A06' }} />
+          <PlusCircle size={15} style={{ color: 'var(--on-accent)' }} />
           <span className="hidden sm:inline">Nuevo Turno</span>
           <span className="sm:hidden">+ Turno</span>
         </button>
 
         {/* Cobrar Cantina — desktop */}
         <button onClick={onOpenCantina} className="btn-secondary hidden sm:inline-flex" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-          <ShoppingBag size={15} color="#00E676" />
+          <ShoppingBag size={15} color="var(--green)" />
           <span className="hidden md:inline">Cantina</span>
         </button>
 
@@ -170,8 +169,8 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
               <span style={{
                 position: 'absolute', top: 5, right: 5,
                 width: 16, height: 16, borderRadius: '50%',
-                background: '#00B0FF', border: '2px solid var(--bg-pitch)',
-                fontSize: '0.6rem', fontWeight: 900, color: '#fff',
+                background: 'var(--blue)', border: '2px solid var(--bg-pitch)',
+                fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-primary)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 lineHeight: 1
               }}>{unreadCount}</span>
@@ -181,13 +180,13 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
           {notifOpen && (
             <div className="dropdown-menu" style={{ right: 0, top: 'calc(100% + 8px)', minWidth: 300 }}>
               <div style={{ padding: '8px 12px 6px', borderBottom: '1px solid var(--border-dim)', marginBottom: 4 }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#fff' }}>Notificaciones</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>Notificaciones</span>
               </div>
               {notifications.map(n => (
                 <div key={n.id} className="dropdown-item" style={{ gap: 10, alignItems: 'flex-start', opacity: n.read ? 0.6 : 1 }}>
                   <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>{n.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff', marginBottom: 1 }}>{n.text}</p>
+                    <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 1 }}>{n.text}</p>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{n.sub}</p>
                   </div>
                   {!n.read && <span style={{ width: 7, height: 7, borderRadius: '50%', background: n.color, flexShrink: 0, marginTop: 5 }} />}
@@ -208,10 +207,10 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
             onClick={() => { setProfileOpen(o => !o); setNotifOpen(false); }}
             style={{
               width: 38, height: 38, borderRadius: 11,
-              background: 'linear-gradient(140deg, #182A1E 0%, #1D3622 100%)',
+              background: 'linear-gradient(140deg, var(--bg-surface) 0%, var(--bg-card-hover) 100%)',
               border: '1px solid rgba(0,230,118,0.35)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, color: '#00E676',
+              cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, color: 'var(--green)',
               transition: 'all 0.2s ease',
               boxShadow: profileOpen ? '0 0 0 2px rgba(0,230,118,0.3)' : 'none'
             }}
@@ -222,7 +221,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
           {profileOpen && (
             <div className="dropdown-menu" style={{ right: 0, top: 'calc(100% + 8px)', minWidth: 220 }}>
               <div style={{ padding: '10px 12px 10px', borderBottom: '1px solid var(--border-dim)', marginBottom: 4 }}>
-                <p style={{ fontWeight: 800, color: '#fff', fontSize: '0.88rem' }}>El Maracaná</p>
+                <p style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.88rem' }}>El Maracaná</p>
                 <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 1 }}>Administrador del Complejo</p>
               </div>
 

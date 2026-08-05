@@ -20,7 +20,7 @@ export default function VistaPublicaJugador() {
           <h1 className="section-title">Web Pública para Jugadores</h1>
           <p className="section-subtitle">Vista previa de la página que ven los clientes al escanear el QR del complejo</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.3)', fontSize: '0.8rem', fontWeight: 700, color: '#00E676' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.3)', fontSize: '0.8rem', fontWeight: 700, color: 'var(--green)' }}>
           <QrCode size={14} />
           tucan.app/maracana
         </div>
@@ -43,25 +43,25 @@ export default function VistaPublicaJugador() {
           }}>
             <div style={{
               width: 60, height: 60, borderRadius: 18, marginBottom: 12, margin: '0 auto 12px',
-              background: 'linear-gradient(140deg, #00E676, #00A040)',
+              background: 'linear-gradient(140deg, var(--green), var(--green-dark))',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28,
               boxShadow: '0 8px 24px rgba(0,230,118,0.4)'
             }}>⚽</div>
-            <h2 className="font-heading" style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', marginBottom: 6 }}>
+            <h2 className="font-heading" style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: 6 }}>
               {COMPLEX_INFO.name}
             </h2>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-              <MapPin size={12} color="#00E676" /> {COMPLEX_INFO.address}, {COMPLEX_INFO.city}
+              <MapPin size={12} color="var(--green)" /> {COMPLEX_INFO.address}, {COMPLEX_INFO.city}
             </p>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '5px 14px', borderRadius: 99, background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)', fontSize: '0.76rem', fontWeight: 800, color: '#00E676' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '5px 14px', borderRadius: 99, background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)', fontSize: '0.76rem', fontWeight: 800, color: 'var(--green)' }}>
               <ShieldCheck size={13} /> Reservas verificadas 24/7
             </div>
           </div>
 
           {success ? (
             <div style={{ padding: '28px', borderRadius: 16, textAlign: 'center', background: 'rgba(0,230,118,0.07)', border: '1px solid rgba(0,230,118,0.35)' }}>
-              <CheckCircle2 size={48} color="#00E676" style={{ margin: '0 auto 14px' }} />
-              <h3 className="font-heading" style={{ fontWeight: 900, color: '#fff', fontSize: '1.1rem', marginBottom: 8 }}>
+              <CheckCircle2 size={48} color="var(--green)" style={{ margin: '0 auto 14px' }} />
+              <h3 className="font-heading" style={{ fontWeight: 900, color: 'var(--text-primary)', fontSize: '1.1rem', marginBottom: 8 }}>
                 ¡Pre-Reserva Iniciada!
               </h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 18 }}>
@@ -93,7 +93,7 @@ export default function VistaPublicaJugador() {
                         boxShadow: selectedCanchaId === c.id ? `0 0 14px ${c.color}22` : 'none'
                       }}
                     >
-                      <div className="font-heading" style={{ fontWeight: 800, fontSize: '0.82rem', color: selectedCanchaId === c.id ? c.color : '#fff', marginBottom: 3 }}>
+                      <div className="font-heading" style={{ fontWeight: 800, fontSize: '0.82rem', color: selectedCanchaId === c.id ? c.color : 'var(--text-primary)', marginBottom: 3 }}>
                         {c.name.split(' - ')[0]}
                       </div>
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{c.type}</div>
@@ -118,9 +118,9 @@ export default function VistaPublicaJugador() {
                         style={{
                           padding: '9px 4px', borderRadius: 10, cursor: 'pointer', transition: 'all 0.18s ease',
                           fontSize: '0.8rem', fontWeight: 700,
-                          background: isSelected ? '#00E676' : 'var(--bg-input)',
-                          border: `1px solid ${isSelected ? '#00E676' : 'var(--border-dim)'}`,
-                          color: isSelected ? '#040A06' : 'var(--text-primary)',
+                          background: isSelected ? 'var(--green)' : 'var(--bg-input)',
+                          border: `1px solid ${isSelected ? 'var(--green)' : 'var(--border-dim)'}`,
+                          color: isSelected ? 'var(--on-accent)' : 'var(--text-primary)',
                           boxShadow: isSelected ? '0 3px 12px rgba(0,230,118,0.35)' : 'none'
                         }}
                       >
@@ -141,15 +141,15 @@ export default function VistaPublicaJugador() {
                   <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>
                     {cancha.name.split(' - ')[0]} · {selectedTime} hs · {isNight ? '🌙 Nocturno' : '☀️ Diurno'}
                   </p>
-                  <p className="font-heading" style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>
+                  <p className="font-heading" style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1 }}>
                     ${price.toLocaleString('es-AR')}
                   </p>
-                  <p style={{ fontSize: '0.72rem', color: '#00E676', fontWeight: 700, marginTop: 4 }}>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--green)', fontWeight: 700, marginTop: 4 }}>
                     Seña: ${(price/2).toLocaleString('es-AR')} (50%)
                   </p>
                 </div>
                 <button type="submit" className="btn-primary" style={{ padding: '12px 18px', flexShrink: 0 }}>
-                  <MessageSquare size={15} style={{ color: '#040A06' }} />
+                  <MessageSquare size={15} style={{ color: 'var(--on-accent)' }} />
                   Reservar por WhatsApp
                 </button>
               </div>

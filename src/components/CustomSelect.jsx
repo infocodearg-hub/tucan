@@ -44,7 +44,7 @@ export default function CustomSelect({
           padding: '10px 14px',
           borderRadius: 12,
           background: 'var(--bg-input)',
-          border: `1px solid ${isOpen ? '#00E676' : 'var(--border-mid)'}`,
+          border: `1px solid ${isOpen ? 'var(--green)' : 'var(--border-mid)'}`,
           boxShadow: isOpen ? '0 0 16px rgba(0,230,118,0.22)' : 'none',
           color: 'var(--text-primary)',
           cursor: 'pointer',
@@ -53,9 +53,9 @@ export default function CustomSelect({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, overflow: 'hidden' }}>
-          {SelectedIcon && <SelectedIcon size={15} color="#00E676" style={{ flexShrink: 0 }} />}
+          {SelectedIcon && <SelectedIcon size={15} color="var(--green)" style={{ flexShrink: 0 }} />}
           {!SelectedIcon && DefaultIcon && <DefaultIcon size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
-          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: value ? '#fff' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: value ? 'var(--text-primary)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {selectedLabel}
           </span>
         </div>
@@ -104,7 +104,7 @@ export default function CustomSelect({
                   cursor: 'pointer',
                   fontSize: '0.82rem',
                   fontWeight: isSelected ? 800 : 500,
-                  color: isSelected ? '#00E676' : 'var(--text-primary)',
+                  color: isSelected ? 'var(--green)' : 'var(--text-primary)',
                   background: isSelected ? 'rgba(0,230,118,0.12)' : 'transparent',
                   transition: 'all 0.15s ease',
                   marginBottom: 2
@@ -117,10 +117,10 @@ export default function CustomSelect({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                  {OptIcon && <OptIcon size={15} color={isSelected ? '#00E676' : 'var(--text-muted)'} style={{ flexShrink: 0 }} />}
+                  {OptIcon && <OptIcon size={15} color={isSelected ? 'var(--green)' : 'var(--text-muted)'} style={{ flexShrink: 0 }} />}
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{optLbl}</span>
                 </div>
-                {isSelected && <Check size={14} color="#00E676" style={{ flexShrink: 0 }} />}
+                {isSelected && <Check size={14} color="var(--green)" style={{ flexShrink: 0 }} />}
               </div>
             );
           })}

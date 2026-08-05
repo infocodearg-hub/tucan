@@ -15,12 +15,12 @@ export default function VentaExitosaModal({ sale, onClose }) {
           border: '1px solid rgba(0,230,118,0.4)',
           boxShadow: '0 0 30px rgba(0,230,118,0.3)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 16px', color: '#00E676'
+          margin: '0 auto 16px', color: 'var(--green)'
         }}>
           <CheckCircle2 size={34} />
         </div>
 
-        <h3 className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fff', marginBottom: 4 }}>
+        <h3 className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: 4 }}>
           ¡Venta Procesada con Éxito!
         </h3>
         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 20 }}>
@@ -37,18 +37,18 @@ export default function VentaExitosaModal({ sale, onClose }) {
             <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
               Detalle de Venta
             </span>
-            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#00E676' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--green)' }}>
               {sale.target}
             </span>
           </div>
 
-          <p style={{ fontSize: '0.84rem', fontWeight: 600, color: '#fff', marginBottom: 10, lineHeight: 1.4 }}>
+          <p style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 10, lineHeight: 1.4 }}>
             {sale.items}
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border-dim)' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Medio de Cobro: <strong style={{ color: '#fff' }}>{sale.method}</strong></span>
-            <span className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: '#00E676' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Medio de Cobro: <strong style={{ color: 'var(--text-primary)' }}>{sale.method}</strong></span>
+            <span className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--green)' }}>
               ${sale.total.toLocaleString('es-AR')}
             </span>
           </div>
@@ -62,7 +62,7 @@ export default function VentaExitosaModal({ sale, onClose }) {
             className="btn-secondary"
             style={{ flex: 1, padding: '10px', fontSize: '0.82rem', justifyContent: 'center', gap: 6 }}
           >
-            <Printer size={14} color="#00E676" /> Imprimir Ticket
+            <Printer size={14} color="var(--green)" /> Imprimir Ticket
           </button>
           <button 
             type="button"
@@ -70,7 +70,7 @@ export default function VentaExitosaModal({ sale, onClose }) {
             className="btn-primary"
             style={{ flex: 1, padding: '10px', fontSize: '0.82rem', justifyContent: 'center', gap: 6 }}
           >
-            Listo <ArrowRight size={14} style={{ color: '#040A06' }} />
+            Listo <ArrowRight size={14} style={{ color: 'var(--on-accent)' }} />
           </button>
         </div>
 

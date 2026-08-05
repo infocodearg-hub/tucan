@@ -48,10 +48,10 @@ export default function NuevoProductoModal({ isOpen, onClose, onAddProduct }) {
               background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <ShoppingBag size={18} color="#00E676" />
+              <ShoppingBag size={18} color="var(--green)" />
             </div>
             <div>
-              <h3 className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 900, color: '#fff' }}>
+              <h3 className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
                 Nuevo Producto de Cantina
               </h3>
               <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Agregá bebidas, snacks o servicios al catálogo</p>
@@ -114,7 +114,7 @@ export default function NuevoProductoModal({ isOpen, onClose, onAddProduct }) {
                 Cancelar
               </button>
               <button type="submit" className="btn-primary" style={{ padding: '9px 20px' }}>
-                <Check size={15} style={{ color: '#040A06' }} /> Agregar Producto
+                <Check size={15} style={{ color: 'var(--on-accent)' }} /> Agregar Producto
               </button>
             </div>
 

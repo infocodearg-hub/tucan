@@ -98,8 +98,8 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-pitch)', color: 'var(--text-primary)' }}>
-      
+    <div style={{ minHeight: '100dvh' }}>
+
       {/* ─── Top Navbar ─── */}
       <Navbar 
         onOpenNuevoTurno={() => setIsNuevoTurnoOpen(true)}
@@ -115,16 +115,7 @@ export default function App() {
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Main Content */}
-        <main 
-          className="app-main-content animate-enter"
-          style={{ 
-            flex: 1, 
-            padding: '24px 20px', 
-            maxWidth: '100%',
-            overflowY: 'auto',
-            minWidth: 0 
-          }}
-        >
+        <main className="app-main-content animate-enter" key={activeTab}>
           {activeTab === 'grilla' && (
             <GrillaTurnos 
               bookings={bookings}

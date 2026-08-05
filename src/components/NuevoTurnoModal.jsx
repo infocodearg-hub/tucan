@@ -95,10 +95,10 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
               border: '1px solid rgba(0,230,118,0.35)',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <Calendar size={18} color="#00E676" />
+              <Calendar size={18} color="var(--green)" />
             </div>
             <div>
-              <h3 className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 900, color: '#fff' }}>
+              <h3 className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
                 Agendar Nuevo Turno
               </h3>
               <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 1 }}>
@@ -143,12 +143,12 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
               background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.2)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Zap size={14} color="#00E676" />
+                <Zap size={14} color="var(--green)" />
                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>
                   {selectedCancha.name.split(' - ')[0]} · {isNight ? '🌙 Nocturno' : '☀️ Diurno'}
                 </span>
               </div>
-              <span style={{ fontWeight: 900, color: '#00E676', fontSize: '1rem', fontFamily: 'Outfit, sans-serif' }}>
+              <span style={{ fontWeight: 900, color: 'var(--green)', fontSize: '1rem', fontFamily: 'Outfit, sans-serif' }}>
                 ${basePrice.toLocaleString('es-AR')}
               </span>
             </div>
@@ -191,9 +191,9 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: paymentStatus === 'partial' ? 14 : 0 }}>
                 {[
-                  { id: 'partial', label: 'Con Seña',    color: '#FFB300' },
-                  { id: 'paid',    label: 'Pagado 100%', color: '#00B0FF' },
-                  { id: 'blocked', label: 'Bloquear',    color: '#FF4F4F' },
+                  { id: 'partial', label: 'Con Seña',    color: 'var(--amber)' },
+                  { id: 'paid',    label: 'Pagado 100%', color: 'var(--blue)' },
+                  { id: 'blocked', label: 'Bloquear',    color: 'var(--red)' },
                 ].map(opt => (
                   <button
                     key={opt.id}
@@ -246,10 +246,10 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
             <div style={{ padding: 14, borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-                  <ShoppingBag size={13} color="#00E676" /> Adicionales de Cantina
+                  <ShoppingBag size={13} color="var(--green)" /> Adicionales de Cantina
                 </span>
                 {cantinaTotal > 0 && (
-                  <span style={{ fontWeight: 800, color: '#00E676', fontSize: '0.85rem' }}>
+                  <span style={{ fontWeight: 800, color: 'var(--green)', fontSize: '0.85rem' }}>
                     +${cantinaTotal.toLocaleString('es-AR')}
                   </span>
                 )}
@@ -268,13 +268,13 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
                         background: 'var(--bg-input)', border: '1px solid var(--border-dim)',
                         color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.15s ease'
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,230,118,0.4)'; e.currentTarget.style.color = '#00E676'; }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,230,118,0.4)'; e.currentTarget.style.color = 'var(--green)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-dim)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
                     >
-                      <ProdIcon size={13} color="#00E676" />
+                      <ProdIcon size={13} color="var(--green)" />
                       <span>{prod.name.split(' ')[0]}</span>
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>${(prod.price/1000).toFixed(1)}k</span>
-                      <Plus size={11} color="#00E676" />
+                      <Plus size={11} color="var(--green)" />
                     </button>
                   );
                 })}
@@ -288,13 +288,13 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
                         {item.qty}× {item.name}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontWeight: 700, color: '#fff', fontSize: '0.82rem' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.82rem' }}>
                           ${(item.price * item.qty).toLocaleString('es-AR')}
                         </span>
                         <button type="button" onClick={() => removeCantina(item.id)} style={{
                           width: 22, height: 22, borderRadius: 6, background: 'rgba(255,79,79,0.1)',
                           border: '1px solid rgba(255,79,79,0.25)', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FF4F4F'
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--red)'
                         }}>
                           <Minus size={11} />
                         </button>
@@ -315,7 +315,7 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
                 />
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                   Registrar como{' '}
-                  <span style={{ color: '#B988FC', fontWeight: 700 }}>Turno Fijo Recurrente</span>
+                  <span style={{ color: 'var(--purple)', fontWeight: 700 }}>Turno Fijo Recurrente</span>
                   {' '}(se repite cada semana)
                 </span>
               </label>
@@ -336,10 +336,10 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
             <div style={{ borderTop: '1px solid var(--border-dim)', paddingTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 2 }}>Total Turno + Extras</p>
-                <p className="font-heading" style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>
+                <p className="font-heading" style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1 }}>
                   ${grandTotal.toLocaleString('es-AR')}
                   {balanceDue > 0 && (
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#FFB300', marginLeft: 8 }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--amber)', marginLeft: 8 }}>
                       (${balanceDue.toLocaleString('es-AR')} en puerta)
                     </span>
                   )}
@@ -351,7 +351,7 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary" style={{ padding: '10px 22px' }}>
-                  <Check size={15} style={{ color: '#040A06' }} />
+                  <Check size={15} style={{ color: 'var(--on-accent)' }} />
                   Confirmar Turno
                 </button>
               </div>

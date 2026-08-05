@@ -125,7 +125,7 @@ export default function CajaCantina({ products, onAddProduct }) {
             className="btn-secondary"
             style={{ padding: '8px 14px', fontSize: '0.82rem', gap: 6 }}
           >
-            <PlusCircle size={15} color="#00E676" /> + Nuevo Producto
+            <PlusCircle size={15} color="var(--green)" /> + Nuevo Producto
           </button>
 
           <div style={{
@@ -137,7 +137,7 @@ export default function CajaCantina({ products, onAddProduct }) {
               <p style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Recaudación Hoy
               </p>
-              <p className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: '#00E676', lineHeight: 1, marginTop: 2 }}>
+              <p className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--green)', lineHeight: 1, marginTop: 2 }}>
                 ${totalSalesToday.toLocaleString('es-AR')}
               </p>
             </div>
@@ -215,9 +215,9 @@ export default function CajaCantina({ products, onAddProduct }) {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       marginBottom: 8
                     }}>
-                      <ProdIcon size={18} color="#00E676" />
+                      <ProdIcon size={18} color="var(--green)" />
                     </div>
-                    <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.84rem', color: '#fff', marginBottom: 3, lineHeight: 1.2 }}>
+                    <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)', marginBottom: 3, lineHeight: 1.2 }}>
                       {prod.name}
                     </h4>
                     <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
@@ -226,14 +226,14 @@ export default function CajaCantina({ products, onAddProduct }) {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border-dim)' }}>
-                    <span className="font-heading" style={{ fontWeight: 900, color: '#00E676', fontSize: '0.9rem' }}>
+                    <span className="font-heading" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '0.9rem' }}>
                       ${prod.price.toLocaleString('es-AR')}
                     </span>
                     <div style={{
                       width: 26, height: 26, borderRadius: 8,
                       background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#00E676', fontWeight: 900, fontSize: '0.85rem'
+                      color: 'var(--green)', fontWeight: 900, fontSize: '0.85rem'
                     }}>
                       +
                     </div>
@@ -249,7 +249,7 @@ export default function CajaCantina({ products, onAddProduct }) {
             background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
             marginTop: 4
           }}>
-            <h3 className="font-heading" style={{ fontSize: '0.9rem', fontWeight: 800, color: '#fff', marginBottom: 12 }}>
+            <h3 className="font-heading" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
               Últimas Ventas Realizadas
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -262,11 +262,11 @@ export default function CajaCantina({ products, onAddProduct }) {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>{sale.time}</span>
-                    <span style={{ fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sale.items}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sale.items}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{sale.method}</span>
-                    <span style={{ fontWeight: 800, color: '#00E676' }}>${sale.total.toLocaleString('es-AR')}</span>
+                    <span style={{ fontWeight: 800, color: 'var(--green)' }}>${sale.total.toLocaleString('es-AR')}</span>
                   </div>
                 </div>
               ))}
@@ -285,12 +285,12 @@ export default function CajaCantina({ products, onAddProduct }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--border-dim)', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ShoppingBag size={16} color="#00E676" />
-                <h3 className="font-heading" style={{ fontWeight: 800, fontSize: '0.95rem', color: '#fff' }}>Ticket de Venta</h3>
+                <ShoppingBag size={16} color="var(--green)" />
+                <h3 className="font-heading" style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Ticket de Venta</h3>
               </div>
               <span style={{
                 fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: 99,
-                background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)', color: '#00E676'
+                background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)'
               }}>
                 {cart.length} ítems
               </span>
@@ -320,8 +320,8 @@ export default function CajaCantina({ products, onAddProduct }) {
                     background: 'var(--bg-surface)', border: '1px solid var(--border-dim)'
                   }}>
                     <div style={{ flex: 1, minWidth: 0, paddingRight: 6 }}>
-                      <p style={{ fontWeight: 700, color: '#fff', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
-                      <p style={{ fontSize: '0.7rem', color: '#00E676', fontWeight: 700, marginTop: 1 }}>${item.price.toLocaleString('es-AR')} c/u</p>
+                      <p style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--green)', fontWeight: 700, marginTop: 1 }}>${item.price.toLocaleString('es-AR')} c/u</p>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
@@ -330,14 +330,14 @@ export default function CajaCantina({ products, onAddProduct }) {
                         border: '1px solid var(--border-dim)', color: 'var(--text-primary)', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800
                       }}>-</button>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 900, color: '#fff', width: 14, textAlign: 'center' }}>{item.qty}</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-primary)', width: 14, textAlign: 'center' }}>{item.qty}</span>
                       <button onClick={() => updateCartQty(item.id, 1)} style={{
                         width: 24, height: 24, borderRadius: 6, background: 'rgba(0,230,118,0.15)',
-                        border: '1px solid rgba(0,230,118,0.3)', color: '#00E676', cursor: 'pointer',
+                        border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800
                       }}>+</button>
                       <button onClick={() => removeFromCart(item.id)} style={{
-                        background: 'none', border: 'none', color: '#FF4F4F', cursor: 'pointer',
+                        background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer',
                         padding: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 2
                       }}>
                         <Trash2 size={13} />
@@ -364,7 +364,7 @@ export default function CajaCantina({ products, onAddProduct }) {
                       cursor: 'pointer', transition: 'all 0.15s ease', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
                       background: paymentMethod === m ? 'rgba(0,230,118,0.15)' : 'var(--bg-input)',
                       border: `1px solid ${paymentMethod === m ? 'rgba(0,230,118,0.4)' : 'var(--border-dim)'}`,
-                      color: paymentMethod === m ? '#00E676' : 'var(--text-muted)',
+                      color: paymentMethod === m ? 'var(--green)' : 'var(--text-muted)',
                       boxShadow: paymentMethod === m ? '0 0 10px rgba(0,230,118,0.15)' : 'none'
                     }}
                   >
@@ -376,7 +376,7 @@ export default function CajaCantina({ products, onAddProduct }) {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Total Ticket:</span>
-              <span className="font-heading" style={{ fontSize: '1.4rem', fontWeight: 900, color: '#00E676' }}>
+              <span className="font-heading" style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--green)' }}>
                 ${cartTotal.toLocaleString('es-AR')}
               </span>
             </div>
@@ -387,7 +387,7 @@ export default function CajaCantina({ products, onAddProduct }) {
               className="btn-primary"
               style={{ padding: '11px', justifyContent: 'center', fontSize: '0.85rem', width: '100%', opacity: cart.length === 0 ? 0.4 : 1, cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }}
             >
-              <CheckCircle2 size={16} style={{ color: '#040A06' }} /> Procesar Cobro
+              <CheckCircle2 size={16} style={{ color: 'var(--on-accent)' }} /> Procesar Cobro
             </button>
           </div>
 

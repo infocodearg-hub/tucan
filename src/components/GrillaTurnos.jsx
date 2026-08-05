@@ -23,7 +23,7 @@ const STATUS_CONFIG = {
     label: 'Señado',
     cardBorder: 'rgba(255,179,0,0.4)',
     cardBg: 'rgba(255,179,0,0.04)',
-    barColor: '#FFB300',
+    barColor: 'var(--amber)',
     paidPercent: 50,
   },
   paid: {
@@ -31,7 +31,7 @@ const STATUS_CONFIG = {
     label: 'Pagado 100%',
     cardBorder: 'rgba(0,176,255,0.4)',
     cardBg: 'rgba(0,176,255,0.04)',
-    barColor: '#40C4FF',
+    barColor: 'var(--blue)',
     paidPercent: 100,
   },
   fixed: {
@@ -39,7 +39,7 @@ const STATUS_CONFIG = {
     label: 'Turno Fijo',
     cardBorder: 'rgba(185,136,252,0.4)',
     cardBg: 'rgba(185,136,252,0.04)',
-    barColor: '#B988FC',
+    barColor: 'var(--purple)',
     paidPercent: 100,
   },
   blocked: {
@@ -47,18 +47,18 @@ const STATUS_CONFIG = {
     label: 'Bloqueado',
     cardBorder: 'rgba(255,79,79,0.35)',
     cardBg: 'rgba(255,79,79,0.04)',
-    barColor: '#FF4F4F',
+    barColor: 'var(--red)',
     paidPercent: 0,
   },
 };
 
 // ─── KPI Card ───
-function KpiCard({ label, value, sub, subColor = '#00E676', icon, accent = 'green', onClick }) {
+function KpiCard({ label, value, sub, subColor = 'var(--green)', icon, accent = 'green', onClick }) {
   const accents = {
-    green:  { iconBg: 'rgba(0,230,118,0.12)', iconBorder: 'rgba(0,230,118,0.3)', iconColor: '#00E676' },
-    blue:   { iconBg: 'rgba(0,176,255,0.12)', iconBorder: 'rgba(0,176,255,0.3)', iconColor: '#00B0FF' },
-    volt:   { iconBg: 'rgba(200,255,0,0.12)',  iconBorder: 'rgba(200,255,0,0.3)',  iconColor: '#C8FF00' },
-    purple: { iconBg: 'rgba(185,136,252,0.12)', iconBorder: 'rgba(185,136,252,0.3)', iconColor: '#B988FC' },
+    green:  { iconBg: 'rgba(0,230,118,0.12)', iconBorder: 'rgba(0,230,118,0.3)', iconColor: 'var(--green)' },
+    blue:   { iconBg: 'rgba(0,176,255,0.12)', iconBorder: 'rgba(0,176,255,0.3)', iconColor: 'var(--blue)' },
+    volt:   { iconBg: 'rgba(200,255,0,0.12)',  iconBorder: 'rgba(200,255,0,0.3)',  iconColor: 'var(--volt)' },
+    purple: { iconBg: 'rgba(185,136,252,0.12)', iconBorder: 'rgba(185,136,252,0.3)', iconColor: 'var(--purple)' },
   };
   const a = accents[accent] || accents.green;
 
@@ -68,14 +68,27 @@ function KpiCard({ label, value, sub, subColor = '#00E676', icon, accent = 'gree
       onClick={onClick}
       style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
-      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-        <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {label}
-        </p>
-        <h4 className="font-heading" style={{ fontSize: 'clamp(1.2rem, 4vw, 1.6rem)', fontWeight: 900, color: '#fff', lineHeight: 1, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      {/* Los textos envuelven en vez de cortarse: en un KPI, "RECAUDADO (…"
+          no informa nada. El único que no envuelve es la cifra. */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <p className="label-caps truncate-2">{label}</p>
+        <h4
+          className="font-heading num truncate-1"
+          style={{
+            fontSize: 'clamp(1.25rem, 4vw, 1.65rem)',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            lineHeight: 1.05,
+          }}
+        >
           {value}
         </h4>
-        <p style={{ fontSize: '0.72rem', color: subColor, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</p>
+        <p
+          className="truncate-2"
+          style={{ fontSize: '0.72rem', color: subColor, fontWeight: 600, lineHeight: 1.35 }}
+        >
+          {sub}
+        </p>
       </div>
       <div className="kpi-icon" style={{ background: a.iconBg, border: `1px solid ${a.iconBorder}`, color: a.iconColor }}>
         {icon}
@@ -131,14 +144,14 @@ function BookedSlot({ booking, onClick }) {
       {/* Top: Name + Badges */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-          <span className="font-heading" style={{ fontWeight: 800, fontSize: '0.86rem', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span className="font-heading" style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {booking.clientName}
           </span>
           {booking.channel === 'bot_ai' && (
             <span style={{
               fontSize: '0.6rem', padding: '2px 6px', borderRadius: 6,
               background: 'rgba(0,230,118,0.15)', border: '1px solid rgba(0,230,118,0.3)',
-              color: '#00E676', fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3
+              color: 'var(--green)', fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3
             }}>
               <Bot size={9} />IA
             </span>
@@ -160,21 +173,21 @@ function BookedSlot({ booking, onClick }) {
       {/* Bottom: Finance */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#fff' }}>
+          <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)' }}>
             ${booking.depositPaid.toLocaleString('es-AR')}
           </span>
           {balance > 0 ? (
-            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#FFB300' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--amber)' }}>
               · Resta ${balance.toLocaleString('es-AR')}
             </span>
           ) : (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.7rem', fontWeight: 800, color: '#00E676' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.7rem', fontWeight: 800, color: 'var(--green)' }}>
               <CheckCircle2 size={11} /> OK
             </span>
           )}
         </div>
         {booking.cantinaExtras?.length > 0 && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', fontWeight: 800, color: '#C8FF00' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', fontWeight: 800, color: 'var(--volt)' }}>
             <ShoppingBag size={10} />{booking.cantinaExtras.length}
           </span>
         )}
@@ -214,8 +227,8 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
             <ChevronLeft size={16} />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 10, background: 'var(--bg-card)', border: '1px solid var(--border-dim)' }}>
-            <CalendarDays size={14} color="#00E676" />
-            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#fff' }}>Hoy</span>
+            <CalendarDays size={14} color="var(--green)" />
+            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)' }}>Hoy</span>
           </div>
           <button className="btn-icon">
             <ChevronRight size={16} />
@@ -229,7 +242,7 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
           label="Ocupación"
           value={`${occupancyPercent}%`}
           sub={`${todayBookings.length} de ${totalSlots} turnos`}
-          subColor="#00E676"
+          subColor="var(--green)"
           icon={<Zap size={18} />}
           accent="green"
         />
@@ -237,7 +250,7 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
           label="Recaudado (Señas)"
           value={`$${(totalCollected/1000).toFixed(0)}k`}
           sub={`Resta cobrar: $${(totalPending/1000).toFixed(0)}k`}
-          subColor="#FFB300"
+          subColor="var(--amber)"
           icon={<DollarSign size={18} />}
           accent="blue"
         />
@@ -245,7 +258,7 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
           label="Bot IA WhatsApp"
           value={`${botBookings} Res.`}
           sub="Reservas automáticas hoy"
-          subColor="#C8FF00"
+          subColor="var(--volt)"
           icon={<Sparkles size={18} />}
           accent="volt"
         />
@@ -253,7 +266,7 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
           label="Turnos Fijos"
           value="4 Equipos"
           sub="Activos esta semana"
-          subColor="#B988FC"
+          subColor="var(--purple)"
           icon={<Clock size={18} />}
           accent="purple"
         />
@@ -288,7 +301,7 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
               cursor: 'pointer', transition: 'all 0.18s ease',
               background: filterCancha === 'all' ? 'var(--bg-card-hover)' : 'transparent',
               border: `1px solid ${filterCancha === 'all' ? 'var(--border-mid)' : 'transparent'}`,
-              color: filterCancha === 'all' ? '#fff' : 'var(--text-muted)'
+              color: filterCancha === 'all' ? 'var(--text-primary)' : 'var(--text-muted)'
             }}
           >
             Todas
@@ -350,7 +363,7 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                 }}>
                   <div>
-                    <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.86rem', color: '#fff' }}>
+                    <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
                       {cancha.name.split(' - ')[0]}
                     </h4>
                     <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 1 }}>
@@ -392,11 +405,11 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                       gap: 2
                     }}>
-                      <span className="font-heading" style={{ fontWeight: 900, fontSize: '0.92rem', color: '#fff', lineHeight: 1 }}>
+                      <span className="font-heading" style={{ fontWeight: 900, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1 }}>
                         {slotTime}
                       </span>
                       <span style={{
-                        fontSize: '0.58rem', fontWeight: 800, color: isNight ? '#00E5FF' : '#FFB300',
+                        fontSize: '0.58rem', fontWeight: 800, color: isNight ? 'var(--cyan)' : 'var(--amber)',
                         background: isNight ? 'rgba(0,229,255,0.1)' : 'rgba(255,179,0,0.1)',
                         padding: '1px 5px', borderRadius: 4
                       }}>
