@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import GrillaTurnos from './components/GrillaTurnos';
@@ -10,10 +10,27 @@ import ConfiguracionComplejo from './components/ConfiguracionComplejo';
 import VistaPublicaJugador from './components/VistaPublicaJugador';
 import NuevoTurnoModal from './components/NuevoTurnoModal';
 import DetalleTurnoModal from './components/DetalleTurnoModal';
-import Toast from './components/Toast';
+import ToastViewport from './components/ToastViewport';
 
-import { INITIAL_BOOKINGS, CANTINA_PRODUCTS, CLIENTS_DATABASE } from './data/mockData';
-import { 
+import {
+  useAppState,
+  useBookingActions,
+  useBookingsForDate,
+  useClientActions,
+  useClients,
+  useProductActions,
+  useProducts,
+  useSaleActions,
+  useSelectedDate,
+  useToast,
+  useTurnoFijoActions,
+  useUIActions,
+  selectors,
+} from './store';
+import { toLegacyBookings, toLegacyClient, toLegacyProduct } from './store/legacyAdapter';
+import { normalizePhone } from './lib/phone';
+import { CATEGORIAS, guessIconKey } from './lib/catalog';
+import {
   CalendarDays, ShoppingBag, BarChart3, Settings, Users, Repeat
 } from 'lucide-react';
 
@@ -26,82 +43,190 @@ const BOTTOM_NAV = [
   { id: 'reportes',     label: 'Reportes',    icon: BarChart3 },
 ];
 
+const categoriaKeyFromLegacyLabel = (label) =>
+  Object.keys(CATEGORIAS).find((k) => CATEGORIAS[k] === label) ?? 'bebidas';
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('grilla');
-  const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
-  const [products, setProducts] = useState(CANTINA_PRODUCTS);
-  const [clients, setClients] = useState(CLIENTS_DATABASE);
-  
+  const state = useAppState();
+  const { activeTab } = state.ui;
+  const { setActiveTab } = useUIActions();
+  const selectedDate = useSelectedDate();
+  const toast = useToast();
+
+  const bookingActions = useBookingActions();
+  const clientActions = useClientActions();
+  const productActions = useProductActions();
+  const saleActions = useSaleActions();
+  const turnoFijoActions = useTurnoFijoActions();
+
+  const rawBookingsToday = useBookingsForDate(selectedDate);
+  const rawClients = useClients();
+  const rawProducts = useProducts();
+
+  // ─── Capa de compatibilidad: estos 3 componentes todavía esperan la forma
+  // de datos vieja. Se elimina en la Fase 5 cuando se reescriben. Ver
+  // src/store/legacyAdapter.js.
+  const bookings = useMemo(() => toLegacyBookings(state, rawBookingsToday), [state, rawBookingsToday]);
+  const clients = useMemo(
+    () =>
+      rawClients.map((c) =>
+        toLegacyClient(
+          state,
+          c,
+          selectors.selectClientStats(state, c.id),
+          selectors.selectClientBadge(state, c.id)
+        )
+      ),
+    [state, rawClients]
+  );
+  const products = useMemo(() => rawProducts.map(toLegacyProduct), [rawProducts]);
+
   const [isNuevoTurnoOpen, setIsNuevoTurnoOpen] = useState(false);
   const [modalSlot, setModalSlot] = useState({ canchaId: 'c1', time: '20:00' });
   const [selectedBookingDetail, setSelectedBookingDetail] = useState(null);
-
-  // Toast notification state
-  const [toast, setToast] = useState(null);
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
 
   const handleOpenNuevoTurnoWithSlot = (canchaId, time) => {
     setModalSlot({ canchaId, time });
     setIsNuevoTurnoOpen(true);
   };
 
-  const handleSaveBooking = (newBooking) => {
-    setBookings(prev => [
-      ...prev.filter(b => !(b.canchaId === newBooking.canchaId && b.time === newBooking.time)),
-      newBooking
-    ]);
-    showToast(`¡Turno reservado para ${newBooking.clientName}!`);
+  // Convierte el objeto viejo que arma NuevoTurnoModal en acciones reales del
+  // store: crea el turno con su primer pago (si hay seña) y, si cargaron
+  // consumos de cantina, los registra como una venta asociada al turno.
+  const handleSaveBooking = (legacyBooking) => {
+    const cantinaTotal = (legacyBooking.cantinaExtras ?? []).reduce(
+      (acc, i) => acc + i.price * i.qty,
+      0
+    );
+
+    const result = bookingActions.crear({
+      fecha: selectedDate,
+      hora: legacyBooking.time,
+      canchaId: legacyBooking.canchaId,
+      clienteId: null,
+      clienteNombre: legacyBooking.clientName,
+      clienteTelefono: normalizePhone(legacyBooking.clientPhone),
+      estado: legacyBooking.status === 'blocked' ? 'bloqueado' : 'reservado',
+      precioCancha: legacyBooking.totalPrice - cantinaTotal,
+      pagos:
+        legacyBooking.depositPaid > 0
+          ? [{ monto: legacyBooking.depositPaid, metodo: 'mercadopago', nota: legacyBooking.paymentMethod }]
+          : [],
+      notas: legacyBooking.notes ?? '',
+      canal: legacyBooking.channel === 'bot_ai' ? 'bot_wa' : 'mostrador',
+    });
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    if (cantinaTotal > 0) {
+      saleActions.registrar({
+        items: legacyBooking.cantinaExtras.map((i) => ({
+          productoId: i.id,
+          nombre: i.name,
+          precioUnit: i.price,
+          cantidad: i.qty,
+        })),
+        total: cantinaTotal,
+        metodoPago: 'a_cuenta_turno',
+        bookingId: result.data.id,
+      });
+    }
+
+    toast.success(`¡Turno reservado para ${legacyBooking.clientName}!`);
   };
 
-  const handleSettleBooking = (bookingId) => {
-    setBookings(prev => prev.map(b => 
-      b.id === bookingId ? { ...b, status: 'paid', depositPaid: b.totalPrice } : b
-    ));
-    showToast('¡Turno saldado correctamente! (100% Pagado)');
+  /** Turnos fijos proyectados (id `virt_...`) se materializan antes de tocarlos. */
+  const ensureRealBookingId = (legacyDetail) => {
+    if (!legacyDetail._source.esVirtual) return legacyDetail._source.id;
+    const res = bookingActions.materializarFijo(legacyDetail._source);
+    return res.ok ? res.data.id : legacyDetail._source.id;
   };
 
-  const handleCancelBooking = (bookingId) => {
-    setBookings(prev => prev.filter(b => b.id !== bookingId));
-    showToast('Turno cancelado y liberado.', 'info');
+  const handleSettleBooking = () => {
+    const legacy = selectedBookingDetail;
+    if (!legacy) return;
+    const realId = ensureRealBookingId(legacy);
+    const totals = selectors.selectBookingTotals(state, legacy._source);
+    if (totals.saldo > 0) {
+      bookingActions.registrarPago(realId, { monto: totals.saldo, metodo: 'efectivo' });
+    }
+    toast.success('¡Turno saldado correctamente! (100% Pagado)');
   };
 
-  const handleAddCantinaToBooking = (bookingId, product) => {
-    setBookings(prev => prev.map(b => {
-      if (b.id === bookingId) {
-        const existingExtras = b.cantinaExtras || [];
-        const ex = existingExtras.find(i => i.id === product.id);
-        const updatedExtras = ex 
-          ? existingExtras.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i)
-          : [...existingExtras, { ...product, qty: 1 }];
-
-        return {
-          ...b,
-          cantinaExtras: updatedExtras,
-          totalPrice: b.totalPrice + product.price
-        };
-      }
-      return b;
-    }));
-    showToast(`+ ${product.name} agregado al turno`);
+  const handleCancelBooking = () => {
+    const legacy = selectedBookingDetail;
+    if (!legacy) return;
+    if (legacy._source.esVirtual) {
+      // Es una proyección de turno fijo: "cancelar" es saltear solo esta fecha.
+      turnoFijoActions.cancelarOcurrencia(legacy._source.origenFijoId, legacy._source.fecha);
+    } else {
+      bookingActions.cancelar(legacy._source.id);
+    }
+    toast.info('Turno cancelado y liberado.');
   };
 
-  const handleAddProduct = (newProduct) => {
-    setProducts(prev => [newProduct, ...prev]);
-    showToast(`Producto "${newProduct.name}" agregado a la cantina`);
+  const handleAddCantinaToBooking = (_bookingId, legacyProduct) => {
+    const legacy = selectedBookingDetail;
+    if (!legacy) return;
+    const realId = ensureRealBookingId(legacy);
+    saleActions.registrar({
+      items: [
+        {
+          productoId: legacyProduct.id,
+          nombre: legacyProduct.name,
+          precioUnit: legacyProduct.price,
+          cantidad: 1,
+        },
+      ],
+      total: legacyProduct.price,
+      metodoPago: 'a_cuenta_turno',
+      bookingId: realId,
+      clienteId: legacy._source.clienteId ?? null,
+      canchaId: legacy._source.canchaId,
+    });
+    toast.success(`+ ${legacyProduct.name} agregado al turno`);
   };
 
-  const handleAddClient = (newClient) => {
-    setClients(prev => [newClient, ...prev]);
-    showToast(`Cliente "${newClient.name}" registrado en el CRM`);
+  const handleAddProduct = (legacyProduct) => {
+    const categoria = categoriaKeyFromLegacyLabel(legacyProduct.category);
+    const result = productActions.crear({
+      nombre: legacyProduct.name,
+      categoria,
+      precio: legacyProduct.price,
+      stock: legacyProduct.stock,
+      stockMinimo: 6,
+      controlaStock: categoria !== 'servicios',
+      iconKey: guessIconKey(legacyProduct.name, categoria),
+      activo: true,
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`Producto "${legacyProduct.name}" agregado a la cantina`);
+  };
+
+  const handleAddClient = (legacyClient) => {
+    const result = clientActions.crear({
+      nombre: legacyClient.name,
+      telefono: normalizePhone(legacyClient.phone),
+      historicoPrevio: { partidos: 0, cancelaciones: 0, gastado: 0 },
+    });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`Cliente "${legacyClient.name}" registrado en el CRM`);
   };
 
   return (
     <div style={{ minHeight: '100dvh' }}>
 
       {/* ─── Top Navbar ─── */}
-      <Navbar 
+      <Navbar
         onOpenNuevoTurno={() => setIsNuevoTurnoOpen(true)}
         onOpenCantina={() => setActiveTab('cantina')}
         activeTab={activeTab}
@@ -110,14 +235,14 @@ export default function App() {
 
       {/* ─── Layout ─── */}
       <div className="app-container">
-        
+
         {/* Left Sidebar */}
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Main Content */}
         <main className="app-main-content animate-enter" key={activeTab}>
           {activeTab === 'grilla' && (
-            <GrillaTurnos 
+            <GrillaTurnos
               bookings={bookings}
               onOpenNuevoTurnoWithSlot={handleOpenNuevoTurnoWithSlot}
               onOpenBookingDetails={(b) => setSelectedBookingDetail(b)}
@@ -125,13 +250,13 @@ export default function App() {
           )}
           {activeTab === 'turnos_fijos' && <TurnosFijos />}
           {activeTab === 'cantina' && (
-            <CajaCantina 
+            <CajaCantina
               products={products}
               onAddProduct={handleAddProduct}
             />
           )}
           {activeTab === 'clientes' && (
-            <ClientesCRM 
+            <ClientesCRM
               clients={clients}
               onAddClient={handleAddClient}
             />
@@ -160,14 +285,22 @@ export default function App() {
         })}
       </nav>
 
-      {/* ─── New Booking Modal ─── */}
-      <NuevoTurnoModal 
-        isOpen={isNuevoTurnoOpen}
-        onClose={() => setIsNuevoTurnoOpen(false)}
-        onSaveBooking={handleSaveBooking}
-        initialCanchaId={modalSlot.canchaId}
-        initialTime={modalSlot.time}
-      />
+      {/* ─── New Booking Modal ───
+          Se monta SOLO cuando está abierto (antes quedaba montado siempre con
+          el early-return después de los useState, así que initialCanchaId/
+          initialTime solo se aplicaban la primera vez: clickear un slot
+          libre abría el modal mostrando la cancha/hora anterior). El `key`
+          fuerza un remount limpio en cada apertura. */}
+      {isNuevoTurnoOpen && (
+        <NuevoTurnoModal
+          key={`${modalSlot.canchaId}-${modalSlot.time}`}
+          isOpen={isNuevoTurnoOpen}
+          onClose={() => setIsNuevoTurnoOpen(false)}
+          onSaveBooking={handleSaveBooking}
+          initialCanchaId={modalSlot.canchaId}
+          initialTime={modalSlot.time}
+        />
+      )}
 
       {/* ─── Detailed Booking Modal (Interactive Settle, Cantina, WA, Cancel) ─── */}
       <DetalleTurnoModal
@@ -179,14 +312,7 @@ export default function App() {
         onAddCantinaToBooking={handleAddCantinaToBooking}
       />
 
-      {/* ─── Toast Notifications ─── */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
+      <ToastViewport />
 
     </div>
   );

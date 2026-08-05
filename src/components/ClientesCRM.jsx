@@ -9,12 +9,23 @@ const SCORE_COLOR = (score) => {
   return { color: 'var(--red)', bg: 'rgba(255,79,79,0.1)', border: 'rgba(255,79,79,0.3)' };
 };
 
-const getBadgeComponent = (badgeText) => {
-  if (badgeText.includes('VIP')) return { text: 'Jugador VIP', icon: Crown, color: 'var(--amber)', bg: 'rgba(255,179,0,0.12)' };
-  if (badgeText.includes('Capitán')) return { text: 'Capitán Fijo', icon: ShieldCheck, color: 'var(--blue)', bg: 'rgba(0,176,255,0.12)' };
-  if (badgeText.includes('Fiel')) return { text: 'Cliente Fiel', icon: Award, color: 'var(--green)', bg: 'rgba(0,230,118,0.12)' };
-  return { text: 'Ojo: Cancela tarde', icon: AlertTriangle, color: 'var(--red)', bg: 'rgba(255,79,79,0.12)' };
+// Las etiquetas se DERIVAN del comportamiento real (ver lib/status.js
+// badgeForClient), no de un string congelado en los datos. `key` decide
+// ícono y color acá; antes se adivinaba por substring del texto, y una
+// etiqueta nueva como "Habitual" no calzaba con ningún substring — todo
+// lo que no fuera VIP cayó, por descarte, en el badge de moroso.
+const BADGE_META = {
+  vip: { icon: Crown, color: 'var(--amber)', bg: 'rgba(255,179,0,0.12)' },
+  habitual: { icon: ShieldCheck, color: 'var(--blue)', bg: 'rgba(0,176,255,0.12)' },
+  ocasional: { icon: Award, color: 'var(--green)', bg: 'rgba(0,230,118,0.12)' },
+  riesgo: { icon: AlertTriangle, color: 'var(--red)', bg: 'rgba(255,79,79,0.12)' },
+  nuevo: { icon: UserPlus, color: 'var(--text-muted)', bg: 'var(--bg-surface)' },
 };
+
+const getBadgeComponent = (badge) => ({
+  text: badge?.label ?? 'Nuevo',
+  ...(BADGE_META[badge?.key] ?? BADGE_META.nuevo),
+});
 
 export default function ClientesCRM({ clients, onAddClient }) {
   const [search, setSearch] = useState('');
@@ -60,7 +71,14 @@ export default function ClientesCRM({ clients, onAddClient }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
         {[
           { label: 'Total Clientes', value: clients.length, color: 'var(--green)', sub: 'en base de datos' },
-          { label: 'VIP / Regulares', value: clients.filter(c => c.score >= '9').length, color: 'var(--blue)', sub: 'score ≥ 9.0' },
+          {
+            label: 'VIP / Regulares',
+            // `c.score` es texto ("9.8/10"): compararlo como string hacía
+            // que '10/10' >= '9' diera false y el KPI contara de menos.
+            value: clients.filter(c => parseFloat(c.score) >= 9).length,
+            color: 'var(--blue)',
+            sub: 'score ≥ 9.0',
+          },
           { label: 'Atención Especial', value: clients.filter(c => c.cancellations > 1).length, color: 'var(--amber)', sub: 'cancelaciones' },
           { label: 'Total Recaudado', value: `$${(clients.reduce((s,c) => s + c.totalSpent, 0)/1000).toFixed(0)}k`, color: 'var(--volt)', sub: 'entre todos' },
         ].map((s, i) => (
