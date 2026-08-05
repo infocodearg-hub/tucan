@@ -13,7 +13,7 @@
 import React, { useState } from 'react';
 import {
   Plus, Bot, CheckCircle2, DollarSign,
-  Clock, Zap, ShoppingBag, Sparkles,
+  Clock, Zap, ShoppingBag, Sparkles, Sun, Moon,
 } from 'lucide-react';
 import {
   useCanchasActivas,
@@ -252,8 +252,8 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
         <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
           {[
             { key: 'all',      label: 'Todos' },
-            { key: 'futbol5',  label: '⚽ Fútbol 5' },
-            { key: 'padel',    label: '🎾 Pádel' },
+            { key: 'futbol5',  label: 'Fútbol 5' },
+            { key: 'padel',    label: 'Pádel' },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -265,33 +265,22 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
           ))}
         </div>
 
-        {/* Court Pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {/* Court Filter */}
+        <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
           <button
+            className={`tab-btn ${filterCancha === 'all' ? 'active' : ''}`}
             onClick={() => setFilterCancha('all')}
-            style={{
-              padding: '6px 12px', borderRadius: 9, fontSize: '0.78rem', fontWeight: 700,
-              cursor: 'pointer', transition: 'all 0.18s ease',
-              background: filterCancha === 'all' ? 'var(--bg-card-hover)' : 'transparent',
-              border: `1px solid ${filterCancha === 'all' ? 'var(--border-mid)' : 'transparent'}`,
-              color: filterCancha === 'all' ? 'var(--text-primary)' : 'var(--text-muted)',
-            }}
           >
             Todas
           </button>
           {canchasActivas.map((c) => (
             <button
               key={c.id}
+              className={`tab-btn ${filterCancha === c.id ? 'active' : ''}`}
               onClick={() => setFilterCancha(filterCancha === c.id ? 'all' : c.id)}
-              style={{
-                padding: '6px 12px', borderRadius: 9, fontSize: '0.78rem', fontWeight: 700,
-                cursor: 'pointer', transition: 'all 0.18s ease', whiteSpace: 'nowrap',
-                background: filterCancha === c.id ? `${c.color}18` : 'transparent',
-                border: `1px solid ${filterCancha === c.id ? c.color : 'transparent'}`,
-                color: filterCancha === c.id ? c.color : 'var(--text-muted)',
-                boxShadow: filterCancha === c.id ? `0 0 12px ${c.color}22` : 'none',
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.color ?? 'var(--green)', flexShrink: 0 }} />
               {c.nombre}
             </button>
           ))}
@@ -383,12 +372,12 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
                         {slotTime}
                       </span>
                       <span style={{
-                        fontSize: '0.58rem', fontWeight: 800,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: isNight ? 'var(--cyan)' : 'var(--amber)',
                         background: isNight ? 'rgba(0,229,255,0.1)' : 'rgba(255,179,0,0.1)',
-                        padding: '1px 5px', borderRadius: 4,
+                        padding: '2px 5px', borderRadius: 4,
                       }}>
-                        {isNight ? '🌙' : '☀️'}
+                        {isNight ? <Moon size={9} /> : <Sun size={9} />}
                       </span>
                     </div>
 

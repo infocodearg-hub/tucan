@@ -1,5 +1,7 @@
 import React from 'react';
-import { CheckCircle2, X, Printer, ShoppingBag, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Printer, ArrowRight } from 'lucide-react';
+import { formatARS } from '../lib/format';
+import { formatLongDate } from '../lib/date';
 
 export default function VentaExitosaModal({ sale, onClose }) {
   if (!sale) return null;
@@ -7,8 +9,8 @@ export default function VentaExitosaModal({ sale, onClose }) {
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-content" style={{ maxWidth: 420, textAlign: 'center', padding: '28px 24px' }}>
-        
-        {/* Animated Checkmark Badge */}
+
+        {/* Animated Checkmark Badge — no forma parte del ticket imprimible */}
         <div style={{
           width: 64, height: 64, borderRadius: '50%',
           background: 'linear-gradient(140deg, rgba(0,230,118,0.25), rgba(0,230,118,0.08))',
@@ -23,33 +25,46 @@ export default function VentaExitosaModal({ sale, onClose }) {
         <h3 className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: 4 }}>
           ¡Venta Procesada con Éxito!
         </h3>
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 20 }}>
-          Comprobante registrado · {sale.time}
-        </p>
 
-        {/* Ticket Summary Box */}
-        <div style={{
-          padding: '14px 16px', borderRadius: 14,
+        {/* Ticket — esto es lo único que se imprime, ver #ticket-imprimible en index.css */}
+        <div id="ticket-imprimible" style={{
+          padding: '16px 18px', borderRadius: 14,
           background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
           textAlign: 'left', marginBottom: 20
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border-dim)' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-              Detalle de Venta
-            </span>
-            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--green)' }}>
+          <div style={{ textAlign: 'center', marginBottom: 12, paddingBottom: 10, borderBottom: '1px dashed var(--border-mid)' }}>
+            <p className="font-heading" style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+              {sale.complejoNombre || 'Comprobante de Venta'}
+            </p>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
+              {formatLongDate(sale.fecha)} · {sale.time}
+            </p>
+            <p style={{ fontSize: '0.72rem', color: 'var(--green)', fontWeight: 700, marginTop: 2 }}>
               {sale.target}
-            </span>
+            </p>
           </div>
 
-          <p style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 10, lineHeight: 1.4 }}>
-            {sale.items}
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10, paddingBottom: 10, borderBottom: '1px dashed var(--border-mid)' }}>
+            {sale.items.map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.cantidad} × {item.nombre}
+                </span>
+                <span className="num" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', flexShrink: 0 }}>
+                  {formatARS(item.precioUnit * item.cantidad)}
+                </span>
+              </div>
+            ))}
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border-dim)' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Medio de Cobro: <strong style={{ color: 'var(--text-primary)' }}>{sale.method}</strong></span>
-            <span className="font-heading" style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--green)' }}>
-              ${sale.total.toLocaleString('es-AR')}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Medio de Cobro</span>
+            <strong style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>{sale.method}</strong>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
+            <span className="font-heading" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>Total</span>
+            <span className="font-heading num" style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--green)' }}>
+              {formatARS(sale.total)}
             </span>
           </div>
         </div>

@@ -25,12 +25,14 @@ import {
   useSaleActions,
   useProductActions,
   useToast,
+  useConfig,
 } from '../store';
 import { iconForProduct, CATEGORIAS } from '../lib/catalog';
 import { formatARS, formatARSCompact } from '../lib/format';
 import { timestampToTime } from '../lib/date';
 import VentaExitosaModal from './VentaExitosaModal';
 import NuevoProductoModal from './NuevoProductoModal';
+import CustomSelect from './CustomSelect';
 import { useConfirm } from './ConfirmDialog';
 
 const CATEGORY_LABELS = {
@@ -49,6 +51,7 @@ const PAYMENT_METHODS = [
 
 export default function CajaCantina() {
   const products        = useProducts();
+  const config          = useConfig();
   const selectedDate    = useSelectedDate();
   const cajaHoy         = useCajaDelDia(selectedDate);
   const bookingsHoy     = useBookingsForDate(selectedDate);
@@ -138,16 +141,20 @@ export default function CajaCantina() {
       return;
     }
 
-    // Armar objeto "legacy" compatible con VentaExitosaModal
+    // Objeto para VentaExitosaModal — items itemizados de verdad (nombre,
+    // cantidad, precio unitario), no un string aplanado, para armar un
+    // ticket imprimible real.
     const completedSaleObj = {
-      id:     result.data.id,
-      time:   timestampToTime(result.data.fechaHora) + ' hs',
-      items:  cart.map((i) => `${i.qty}x ${i.nombre}`).join(', '),
-      total:  cartTotal,
-      method: PAYMENT_METHODS.find((m) => m.key === paymentMethod)?.label ?? paymentMethod,
+      id:             result.data.id,
+      time:           timestampToTime(result.data.fechaHora) + ' hs',
+      fecha:          selectedDate,
+      items:          saleData.items,
+      total:          cartTotal,
+      method:         PAYMENT_METHODS.find((m) => m.key === paymentMethod)?.label ?? paymentMethod,
       target: assignedBooking
         ? `${assignedBooking.clienteNombre ?? 'Cancha'} (${assignedBooking.hora} hs)`
         : 'Mostrador',
+      complejoNombre: config?.complejo?.nombre,
     };
 
     setCompletedSale(completedSaleObj);
@@ -242,7 +249,7 @@ export default function CajaCantina() {
         {/* Left: Catálogo — minWidth:0 es obligatorio: los ítems de grid no se
             achican por debajo de su contenido mínimo por default, y acá adentro
             hay una fila de tabs sin wrap que si no se "revienta" el track */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+        <div className="pos-grid-catalog" style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
 
           {/* Category Tabs + Search */}
           <div style={{
@@ -290,24 +297,13 @@ export default function CajaCantina() {
                 <div
                   key={prod.id}
                   onClick={() => !sinStock && addToCart(prod)}
+                  className={sinStock ? '' : 'product-card-hoverable'}
                   style={{
                     padding: '12px', borderRadius: 14,
                     background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
                     cursor: sinStock ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.18s ease',
                     display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                     gap: 10, opacity: sinStock ? 0.5 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (sinStock) return;
-                    e.currentTarget.style.borderColor = 'rgba(0,230,118,0.4)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3), 0 0 14px rgba(0,230,118,0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-dim)';
-                    e.currentTarget.style.transform = 'none';
-                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
                   <div>
@@ -359,55 +355,55 @@ export default function CajaCantina() {
               );
             })}
           </div>
+        </div>
 
-          {/* Sales History */}
-          <div style={{
-            padding: '16px 18px', borderRadius: 14,
-            background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
-            marginTop: 4,
-          }}>
-            <h3 className="font-heading" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
-              Últimas Ventas del Día
-            </h3>
-            {salesHistory.length === 0 ? (
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
-                Sin ventas registradas hoy.
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {salesHistory.map((sale) => {
-                  const hora = timestampToTime(sale.fechaHora);
-                  const itemsLabel = sale.items
-                    .map((i) => `${i.cantidad}x ${i.nombre}`)
-                    .join(', ');
-                  return (
-                    <div key={sale.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '9px 12px', borderRadius: 10,
-                      background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
-                      fontSize: '0.78rem',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>
-                          {hora} hs
-                        </span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {itemsLabel}
-                        </span>
-                      </div>
-                      <span className="num" style={{ fontWeight: 800, color: 'var(--green)', flexShrink: 0 }}>
-                        {formatARS(sale.total)}
+        {/* Sales History — 3er hijo directo de .pos-grid, area propia (ver
+            grid-template-areas): en mobile va después del ticket, no antes */}
+        <div className="pos-grid-historial" style={{
+          padding: '16px 18px', borderRadius: 14,
+          background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
+        }}>
+          <h3 className="font-heading" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
+            Últimas Ventas del Día
+          </h3>
+          {salesHistory.length === 0 ? (
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
+              Sin ventas registradas hoy.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {salesHistory.map((sale) => {
+                const hora = timestampToTime(sale.fechaHora);
+                const itemsLabel = sale.items
+                  .map((i) => `${i.cantidad}x ${i.nombre}`)
+                  .join(', ');
+                return (
+                  <div key={sale.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '9px 12px', borderRadius: 10,
+                    background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
+                    fontSize: '0.78rem',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>
+                        {hora} hs
+                      </span>
+                      <span style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {itemsLabel}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    <span className="num" style={{ fontWeight: 800, color: 'var(--green)', flexShrink: 0 }}>
+                      {formatARS(sale.total)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right: Ticket / Cart */}
-        <div style={{
+        <div className="pos-grid-ticket" style={{
           padding: '18px', borderRadius: 16,
           background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
@@ -431,16 +427,11 @@ export default function CajaCantina() {
             {/* Asignar a turno */}
             <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label" style={{ fontSize: '0.7rem' }}>Asignar Venta A:</label>
-              <select
+              <CustomSelect
+                options={bookingOptions}
                 value={assignedBookingId}
-                onChange={(e) => setAssignedBookingId(e.target.value)}
-                className="form-input"
-                style={{ cursor: 'pointer' }}
-              >
-                {bookingOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+                onChange={setAssignedBookingId}
+              />
             </div>
 
             {/* Cart items */}

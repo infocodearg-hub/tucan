@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
-import { BarChart3, TrendingUp, DollarSign, Zap, PieChart, ArrowUpRight, Download, GlassWater, Beer, Wine, Trophy, Calendar } from 'lucide-react';
+import {
+  TrendingUp, DollarSign, Zap, PieChart, Download, GlassWater, Beer, Wine, Trophy,
+  Calendar, Plus, Pencil, Trash2, Receipt, Wallet, ShoppingBag, TrendingDown,
+} from 'lucide-react';
 import CustomSelect from './CustomSelect';
+import DateNav from './DateNav';
+import NuevoGastoModal from './NuevoGastoModal';
+import { useConfirm } from './ConfirmDialog';
 import { formatARS, formatARSCompact } from '../lib/format';
+import { formatMediumDate } from '../lib/date';
+import { GASTO_CATEGORIA_LABEL } from '../lib/status';
+import { exportCierreCajaPDF } from '../lib/pdfExport';
+import {
+  useExpenses, useExpenseActions, useSelectedDate, useCierreCajaDelDia, useExpensesForDate,
+  usePagosDelDia, useCajaDelDia, useToast, useConfig,
+} from '../store';
 
 const COURT_DATA = [
   { name: 'Cancha 1',  type: 'Fútbol 5',  revenue: 1240000, pct: 43.6, color: 'var(--green)' },
@@ -32,19 +45,81 @@ const PERIOD_OPTIONS = [
   { value: 'Junio 2026',  label: 'Junio 2026',  icon: Calendar },
 ];
 
+const TABS = [
+  { id: 'resumen', label: 'Resumen' },
+  { id: 'gastos', label: 'Gastos' },
+  { id: 'caja', label: 'Cierre de Caja' },
+];
+
 export default function ReportesAnalytics() {
   const [period, setPeriod] = useState('Agosto 2026');
+  const [tab, setTab] = useState('resumen');
+  const [gastoModal, setGastoModal] = useState(null); // null | 'new' | Expense
+
+  const expenses = useExpenses();
+  const expenseActions = useExpenseActions();
+  const toast = useToast();
+  const config = useConfig();
+  const { confirm, ConfirmDialogMount } = useConfirm();
+
+  const selectedDate = useSelectedDate();
+  const cierreCaja = useCierreCajaDelDia(selectedDate);
+  const gastosDelDia = useExpensesForDate(selectedDate);
+  const pagosDelDia = usePagosDelDia(selectedDate);
+  // Mismo filtro que usa selectCierreCajaDelDia para ingresosCantina: solo
+  // ventas de mostrador SIN turno asociado (las que sí lo tienen ya están
+  // adentro de pagosDelDia cuando el cliente paga el turno).
+  const ventasMostrador = useCajaDelDia(selectedDate).ventas.filter((v) => !v.bookingId);
+
+  const gastosOrdenados = [...expenses].sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+
+  const handleExportPDF = () => {
+    exportCierreCajaPDF({
+      complejo: config?.complejo,
+      fecha: selectedDate,
+      cierreCaja,
+      pagosDelDia,
+      ventasMostrador,
+      gastosDelDia,
+    });
+  };
+
+  const handleSaveGasto = (data) => {
+    const isEdit = gastoModal && gastoModal !== 'new';
+    const result = isEdit
+      ? expenseActions.actualizar(gastoModal.id, data)
+      : expenseActions.crear(data);
+    if (!result.ok) return result;
+    toast.success(isEdit ? 'Gasto actualizado' : `Gasto "${data.concepto}" agregado`);
+    setGastoModal(null);
+    return result;
+  };
+
+  const handleDeleteGasto = async (gasto) => {
+    const ok = await confirm({
+      title: 'Eliminar gasto',
+      message: `"${gasto.concepto}" se saca del registro. Podés deshacerlo desde el aviso.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
+    expenseActions.eliminar(gasto.id);
+    setGastoModal(null);
+    toast.info(`Gasto "${gasto.concepto}" eliminado`, {
+      action: { label: 'Deshacer', onClick: () => expenseActions.restaurar(gasto) },
+    });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      
+
       {/* Header */}
       <div className="section-header">
         <div>
           <h1 className="section-title">Reportes & Finanzas</h1>
-          <p className="section-subtitle">Métricas de negocio · Ocupación · Recaudación por cancha</p>
+          <p className="section-subtitle">Métricas de negocio · Gastos · Cierre de caja diario</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {tab === 'resumen' && (
           <div style={{ width: 160 }}>
             <CustomSelect
               options={PERIOD_OPTIONS}
@@ -52,12 +127,35 @@ export default function ReportesAnalytics() {
               onChange={setPeriod}
             />
           </div>
-          <button className="btn-secondary" style={{ padding: '9px 14px', gap: 6, height: 42 }}>
-            <Download size={14} color="var(--green)" /> Exportar
+        )}
+        {tab === 'gastos' && (
+          <button className="btn-primary" onClick={() => setGastoModal('new')} style={{ padding: '9px 18px' }}>
+            <Plus size={15} style={{ color: 'var(--on-accent)' }} />
+            Nuevo Gasto
           </button>
-        </div>
+        )}
+        {tab === 'caja' && (
+          <button className="btn-secondary" onClick={handleExportPDF} style={{ padding: '9px 14px', gap: 6, height: 42 }}>
+            <Download size={14} color="var(--text-secondary)" /> Exportar PDF
+          </button>
+        )}
       </div>
 
+      {/* Tabs */}
+      <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`tab-btn ${tab === t.id ? 'active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'resumen' && (
+      <>
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
         {[
@@ -206,6 +304,204 @@ export default function ReportesAnalytics() {
         </div>
 
       </div>
+      </>
+      )}
+
+      {tab === 'gastos' && (
+        <>
+          {gastosOrdenados.length === 0 ? (
+            <div className="empty-state">
+              <Receipt size={32} color="var(--text-muted)" style={{ marginBottom: 12 }} />
+              <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+                No hay gastos cargados todavía
+              </p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Registrá sueldos, mantenimiento o servicios con "Nuevo Gasto".
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {gastosOrdenados.map((g) => (
+                <div
+                  key={g.id}
+                  style={{
+                    display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0,
+                    padding: '12px 14px', borderRadius: 12,
+                    background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {g.concepto}
+                    </span>
+                    <span className="font-heading num" style={{ fontWeight: 800, color: 'var(--red)', fontSize: '0.88rem', flexShrink: 0 }}>
+                      -{formatARS(g.monto)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, overflow: 'hidden' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        {formatMediumDate(g.fecha)}
+                      </span>
+                      <span
+                        style={{
+                          padding: '3px 10px', borderRadius: 99, flexShrink: 0,
+                          background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
+                          color: 'var(--text-secondary)', fontSize: '0.68rem', fontWeight: 700,
+                        }}
+                      >
+                        {GASTO_CATEGORIA_LABEL[g.categoria] ?? g.categoria}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      <button
+                        onClick={() => setGastoModal(g)}
+                        aria-label={`Editar gasto ${g.concepto}`}
+                        className="btn-icon"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteGasto(g)}
+                        aria-label={`Eliminar gasto ${g.concepto}`}
+                        className="btn-icon"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'caja' && (
+        <>
+          <DateNav />
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+            {[
+              { label: 'Ingresos Turnos', value: cierreCaja.ingresosTurnos, color: 'var(--text-primary)', icon: <Wallet size={18} /> },
+              { label: 'Ingresos Cantina', value: cierreCaja.ingresosCantina, color: 'var(--text-primary)', icon: <ShoppingBag size={18} /> },
+              { label: 'Egresos', value: cierreCaja.egresos, color: 'var(--red)', icon: <TrendingDown size={18} /> },
+              { label: 'Neto del Día', value: cierreCaja.neto, color: cierreCaja.neto >= 0 ? 'var(--green)' : 'var(--red)', icon: <DollarSign size={18} /> },
+            ].map((k, i) => (
+              <div key={i} className="kpi-card">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="label-caps truncate-2" style={{ marginBottom: 4 }}>{k.label}</p>
+                  <p className="font-heading num truncate-1" style={{ fontSize: 'clamp(1.1rem, 3.8vw, 1.45rem)', fontWeight: 900, color: k.color, lineHeight: 1.1 }}>
+                    {formatARS(k.value)}
+                  </p>
+                </div>
+                <div className="kpi-icon" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-dim)', color: k.color }}>
+                  {k.icon}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.92rem', marginBottom: 10 }} className="font-heading">
+              <Wallet size={14} color="var(--text-secondary)" /> Turnos cobrados hoy
+            </h3>
+            {pagosDelDia.length === 0 ? (
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>No se cobró ningún turno en esta fecha.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                {pagosDelDia.map((p) => (
+                  <div
+                    key={p.pagoId}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, minWidth: 0,
+                      padding: '10px 14px', borderRadius: 10,
+                      background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, fontSize: '0.82rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.clienteNombre} <span style={{ color: 'var(--text-muted)' }}>· {p.canchaNombre} {p.hora}hs</span>
+                    </span>
+                    <span className="font-heading num" style={{ fontWeight: 700, color: 'var(--green)', fontSize: '0.82rem', flexShrink: 0 }}>
+                      +{formatARS(p.monto)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.92rem', marginBottom: 10 }} className="font-heading">
+              <ShoppingBag size={14} color="var(--text-secondary)" /> Ventas de mostrador hoy
+            </h3>
+            {ventasMostrador.length === 0 ? (
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Sin ventas de mostrador en esta fecha.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                {ventasMostrador.map((v) => (
+                  <div
+                    key={v.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, minWidth: 0,
+                      padding: '10px 14px', borderRadius: 10,
+                      background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, fontSize: '0.82rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {v.items?.map((i) => `${i.cantidad}× ${i.nombre}`).join(', ')}
+                    </span>
+                    <span className="font-heading num" style={{ fontWeight: 700, color: 'var(--green)', fontSize: '0.82rem', flexShrink: 0 }}>
+                      +{formatARS(v.total)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.92rem', marginBottom: 10 }} className="font-heading">
+              <Receipt size={14} color="var(--text-secondary)" /> Gastos del día
+            </h3>
+            {gastosDelDia.length === 0 ? (
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Sin gastos cargados en esta fecha.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {gastosDelDia.map((g) => (
+                  <div
+                    key={g.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, minWidth: 0,
+                      padding: '10px 14px', borderRadius: 10,
+                      background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, fontSize: '0.82rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {g.concepto}
+                    </span>
+                    <span className="font-heading num" style={{ fontWeight: 700, color: 'var(--red)', fontSize: '0.82rem', flexShrink: 0 }}>
+                      -{formatARS(g.monto)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {gastoModal && (
+        <NuevoGastoModal
+          key={gastoModal === 'new' ? 'new' : gastoModal.id}
+          isOpen
+          gasto={gastoModal === 'new' ? null : gastoModal}
+          onClose={() => setGastoModal(null)}
+          onSave={handleSaveGasto}
+          onDelete={handleDeleteGasto}
+        />
+      )}
+      {ConfirmDialogMount}
     </div>
   );
 }

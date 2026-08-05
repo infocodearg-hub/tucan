@@ -36,6 +36,11 @@ export const T = {
   PRODUCT_DELETE: 'products/delete',
   PRODUCT_RESTORE: 'products/restore',
 
+  EXPENSE_CREATE: 'expenses/create',
+  EXPENSE_UPDATE: 'expenses/update',
+  EXPENSE_DELETE: 'expenses/delete',
+  EXPENSE_RESTORE: 'expenses/restore',
+
   SALE_CREATE: 'sales/create',
   SALE_VOID: 'sales/void',
 
@@ -89,6 +94,11 @@ export const createProduct = (product) => ({ type: T.PRODUCT_CREATE, payload: pr
 export const updateProduct = (id, patch) => ({ type: T.PRODUCT_UPDATE, payload: { id, patch } });
 export const deleteProduct = (id) => ({ type: T.PRODUCT_DELETE, payload: { id } });
 export const restoreProduct = (product) => ({ type: T.PRODUCT_RESTORE, payload: product });
+
+export const createExpense = (expense) => ({ type: T.EXPENSE_CREATE, payload: expense });
+export const updateExpense = (id, patch) => ({ type: T.EXPENSE_UPDATE, payload: { id, patch } });
+export const deleteExpense = (id) => ({ type: T.EXPENSE_DELETE, payload: { id } });
+export const restoreExpense = (expense) => ({ type: T.EXPENSE_RESTORE, payload: expense });
 
 export const createSale = (sale) => ({ type: T.SALE_CREATE, payload: sale });
 export const voidSale = (id) => ({ type: T.SALE_VOID, payload: { id } });

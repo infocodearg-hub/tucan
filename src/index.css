@@ -147,6 +147,7 @@
   --on-accent: var(--color-text-inverse);
 
   --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
   --text-muted: var(--color-text-muted);
   --text-faint: var(--color-text-faint);
 
@@ -455,7 +456,7 @@
   }
 
   .animate-enter {
-    animation: enter-up 0.32s var(--ease-out-quint) both;
+    animation: enter-up 0.32s var(--ease-out-quint);
   }
 
   .pulse-dot {
@@ -700,6 +701,51 @@
     background: var(--color-surface-3);
     border-color: var(--color-border-strong);
     color: var(--color-text-primary);
+  }
+
+  /* Chip clickeable genérico (ej. atajos de cantina en el modal de turno) —
+     reemplaza los onMouseEnter/onMouseLeave que mutaban style a mano. */
+  .chip-hoverable {
+    transition: border-color 0.15s var(--ease-out-quint), color 0.15s var(--ease-out-quint);
+  }
+
+  .chip-hoverable:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+
+  /* Card clickeable genérica (ej. catálogo de la caja/cantina) — reemplaza los
+     onMouseEnter/onMouseLeave que mutaban style a mano. */
+  .product-card-hoverable {
+    transition: border-color 0.18s var(--ease-out-quint), transform 0.18s var(--ease-out-quint), box-shadow 0.18s var(--ease-out-quint);
+  }
+
+  .product-card-hoverable:hover {
+    border-color: var(--color-border-strong);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-e2);
+  }
+
+  /* Botón de ícono chico (pencil/trash en filas de lista) — reemplaza los
+     onMouseEnter/onMouseLeave que mutaban style a mano. */
+  .row-icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    padding: 4px;
+    border-radius: var(--radius-xs);
+    display: flex;
+    align-items: center;
+    transition: color 0.15s var(--ease-out-quint);
+  }
+
+  .row-icon-btn:hover {
+    color: var(--color-text-primary);
+  }
+
+  .row-icon-btn.danger:hover {
+    color: var(--red);
   }
 
   /* ── Superficies ────────────────────────────────────────────────────── */
@@ -1390,17 +1436,30 @@
   }
 }
 
-/* ─── POS grid (Cantina): catálogo + ticket ───────────────────────────────── */
+/* ─── Ticket imprimible (VentaExitosaModal) ───────────────────────────────── */
+@media print {
+  body * { visibility: hidden; }
+  #ticket-imprimible, #ticket-imprimible * { visibility: visible; }
+  #ticket-imprimible { position: absolute; inset: 0; padding: 24px; }
+}
+
+/* ─── POS grid (Cantina): catálogo + ticket + historial ───────────────────── */
 .pos-grid {
   display: grid;
   grid-template-columns: 1fr;
+  grid-template-areas: "catalog" "ticket" "historial";
   gap: 16px;
 }
+.pos-grid-catalog { grid-area: catalog; }
+.pos-grid-ticket { grid-area: ticket; }
+.pos-grid-historial { grid-area: historial; }
+
 @media (min-width: 68.75rem) {
   /* ≥ 1100px — recién acá el sidebar (252px) + el panel fijo de 340px dejan
      aire suficiente para el catálogo; por debajo el ticket va debajo, no al lado */
   .pos-grid {
     grid-template-columns: 1fr 340px;
+    grid-template-areas: "catalog ticket" "historial ticket";
   }
 }
 

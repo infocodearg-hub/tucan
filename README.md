@@ -61,6 +61,22 @@ Están para evitar que vuelvan bugs que ya costaron caro:
 7. **Todo número (plata, hora, porcentaje) lleva la clase `.num`** para tener cifras
    tabulares y que no bailen al actualizarse.
 
+## Deploy
+
+SPA pura, sin backend — build estático servible en cualquier hosting.
+
+1. Push a GitHub (rama `master`/`main`).
+2. En [vercel.com](https://vercel.com): "Add New… → Project" → importar el repo.
+3. Configuración de build (Vercel la detecta sola por ser Vite, pero por las dudas):
+   - **Build command:** `npm run build`
+   - **Output directory:** `dist`
+   - **Install command:** `npm install`
+4. No hace falta ninguna variable de entorno todavía (Supabase sigue sin conectar,
+   ver `src/store/repository/supabaseRepo.js`).
+5. `vercel.json` en la raíz ya tiene el rewrite SPA necesario para que `/reserva`
+   (la página pública de reserva, ver `src/main.jsx`) funcione en producción —
+   sin esto, Vercel devuelve 404 en cualquier ruta que no sea `/`.
+
 ## Estado del producto
 
 Funciona end-to-end con datos locales. Lo que queda para vender en serio:

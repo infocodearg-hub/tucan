@@ -7,7 +7,6 @@ import CajaCantina from './components/CajaCantina';
 import ClientesCRM from './components/ClientesCRM';
 import ReportesAnalytics from './components/ReportesAnalytics';
 import ConfiguracionComplejo from './components/ConfiguracionComplejo';
-import VistaPublicaJugador from './components/VistaPublicaJugador';
 import NuevoTurnoModal from './components/NuevoTurnoModal';
 import DetalleTurnoModal from './components/DetalleTurnoModal';
 import ToastViewport from './components/ToastViewport';
@@ -266,7 +265,8 @@ function AppInner({ onLogout }) {
           )}
           {activeTab === 'reportes' && <ReportesAnalytics />}
           {activeTab === 'configuracion' && <ConfiguracionComplejo />}
-          {activeTab === 'vista_publica' && <VistaPublicaJugador />}
+          {/* Vista Pública / QR: movida a /reserva como página aparte (ver src/main.jsx) */}
+          {/* {activeTab === 'vista_publica' && <VistaPublicaJugador />} */}
         </main>
       </div>
 

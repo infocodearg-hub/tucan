@@ -58,6 +58,11 @@ export const useClientBadge = (id) => useSelector(sel.selectClientBadge, id);
 export const useProducts = () => useSelector(sel.selectProducts);
 export const useProduct = (id) => useSelector(sel.selectProduct, id);
 
+export const useExpenses = () => useSelector(sel.selectExpenses);
+export const useExpense = (id) => useSelector(sel.selectExpense, id);
+export const useExpensesForDate = (fecha) => useSelector(sel.selectExpensesForDate, fecha);
+export const useCierreCajaDelDia = (fecha) => useSelector(sel.selectCierreCajaDelDia, fecha);
+
 export const useSales = () => useSelector(sel.selectSales);
 export const useSalesForBooking = (bookingId) => useSelector(sel.selectSalesForBooking, bookingId);
 
@@ -71,6 +76,7 @@ export const useBookingTotals = (booking) => useSelector(sel.selectBookingTotals
 
 export const useDayKpis = (fecha) => useSelector(sel.selectDayKpis, fecha);
 export const useCajaDelDia = (fecha) => useSelector(sel.selectCajaDelDia, fecha);
+export const usePagosDelDia = (fecha) => useSelector(sel.selectPagosDelDia, fecha);
 
 export const useToasts = () => useSelector(sel.selectToasts);
 export const useSelectedDate = () => useSelector(sel.selectSelectedDate);
@@ -283,6 +289,39 @@ export function useProductActions() {
       },
       restaurar: (product) => {
         dispatch(actions.restoreProduct(product));
+        return { ok: true };
+      },
+    }),
+    [dispatch]
+  );
+}
+
+// ─────────────────────────────────────────────── escritura: gastos
+
+export function useExpenseActions() {
+  const dispatch = useAppDispatch();
+  return useMemo(
+    () => ({
+      crear: (data) => {
+        if (!data.concepto?.trim()) return { ok: false, error: 'El concepto es obligatorio.' };
+        if (data.monto == null || data.monto <= 0) {
+          return { ok: false, error: 'El monto tiene que ser mayor a 0.' };
+        }
+        if (!data.fecha) return { ok: false, error: 'Falta la fecha.' };
+        const expense = { id: genId('gto'), ...data };
+        dispatch(actions.createExpense(expense));
+        return { ok: true, data: expense };
+      },
+      actualizar: (id, patch) => {
+        dispatch(actions.updateExpense(id, patch));
+        return { ok: true };
+      },
+      eliminar: (id) => {
+        dispatch(actions.deleteExpense(id));
+        return { ok: true };
+      },
+      restaurar: (expense) => {
+        dispatch(actions.restoreExpense(expense));
         return { ok: true };
       },
     }),

@@ -20,6 +20,7 @@ export const PERSIST_WHITELIST = [
   'products',
   'turnosFijos',
   'sales',
+  'expenses',
 ];
 
 export function createInitialState() {
@@ -27,6 +28,7 @@ export function createInitialState() {
   return {
     meta: { schemaVersion: SCHEMA_VERSION, updatedAt: new Date().toISOString() },
     ...seed,
+    expenses: seed.expenses ?? [],
     ui: {
       activeTab: 'grilla',
       selectedDate: todayISO(),

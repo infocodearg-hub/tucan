@@ -10,7 +10,7 @@
  */
 import React, { useState } from 'react';
 import {
-  X, Calendar, ShoppingBag, CheckCircle2,
+  X, Calendar, ShoppingBag, CheckCircle2, Clock,
   MessageSquare, Trash2, Plus, Pencil, Save, User, Phone,
 } from 'lucide-react';
 import {
@@ -197,12 +197,14 @@ export default function DetalleTurnoModal({
                 Estado del Turno
               </span>
               <span style={{
-                fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: 6, display: 'inline-block',
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: 6,
                 background: isFullyPaid ? 'rgba(0,176,255,0.15)' : 'rgba(255,179,0,0.15)',
                 color: isFullyPaid ? 'var(--blue)' : 'var(--amber)',
                 border: `1px solid ${isFullyPaid ? 'rgba(0,176,255,0.3)' : 'rgba(255,179,0,0.3)'}`,
               }}>
-                {isFullyPaid ? '🔵 Pagado 100%' : '🟡 Señado (Pendiente)'}
+                {isFullyPaid ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                {isFullyPaid ? 'Pagado 100%' : 'Señado (Pendiente)'}
               </span>
             </div>
 

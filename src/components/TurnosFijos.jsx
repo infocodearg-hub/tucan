@@ -22,6 +22,7 @@ import {
   useToast,
 } from '../store';
 import { useConfirm } from './ConfirmDialog';
+import CustomSelect from './CustomSelect';
 import { DIAS_SEMANA, monthKey, occurrencesInMonth, todayISO } from '../lib/date';
 import { precioMensualFijo } from '../lib/pricing';
 import { formatARS, formatARSCompact } from '../lib/format';
@@ -41,31 +42,6 @@ const DAY_OPTIONS = DIAS_SEMANA.slice(1).map((d) => ({
   label: d.largo,
 }));
 
-// ─── Selector nativo pequeño ────────────────────────────────────────────────
-
-function NativeSelect({ value, onChange, options, placeholder }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => {
-        const val = e.target.value;
-        // Convertir a número si es un día de semana
-        const num = Number(val);
-        onChange(Number.isNaN(num) || val === '' ? val : num);
-      }}
-      className="form-input"
-      style={{ cursor: 'pointer' }}
-    >
-      {placeholder && <option value="">{placeholder}</option>}
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 // ─── Badge de estado mensual ─────────────────────────────────────────────────
 
 function EstadoBadge({ estado }) {
@@ -80,13 +56,16 @@ function EstadoBadge({ estado }) {
     fijo:     { bg: 'rgba(185,136,252,0.1)',border: 'rgba(185,136,252,0.3)',color: 'var(--purple)' },
   };
   const s = styles[variant] ?? styles.sin_sena;
+  const alDia = estado === ESTADO_MES.al_dia;
   return (
     <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
       padding: '4px 10px', borderRadius: 99, flexShrink: 0,
       background: s.bg, border: `1px solid ${s.border}`, color: s.color,
       fontSize: '0.72rem', fontWeight: 800,
     }}>
-      {estado === ESTADO_MES.al_dia ? `✓ ${label}` : `⚠ ${label}`}
+      {alDia ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+      {label}
     </span>
   );
 }
@@ -290,26 +269,14 @@ export default function TurnosFijos() {
                 <button
                   onClick={() => openEditModal(tf)}
                   aria-label={`Editar turno fijo de ${tf.equipoNombre}`}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', padding: 4, borderRadius: 6,
-                    display: 'flex', alignItems: 'center',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  className="row-icon-btn"
                 >
                   <Pencil size={13} />
                 </button>
                 <button
                   onClick={() => handleDelete(tf)}
                   aria-label={`Eliminar turno fijo de ${tf.equipoNombre}`}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', padding: 4, borderRadius: 6,
-                    display: 'flex', alignItems: 'center',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--red)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  className="row-icon-btn danger"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -456,7 +423,7 @@ export default function TurnosFijos() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Día de la Semana</label>
-                    <NativeSelect
+                    <CustomSelect
                       options={DAY_OPTIONS}
                       value={diaSemana}
                       onChange={setDiaSemana}
@@ -464,7 +431,7 @@ export default function TurnosFijos() {
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Horario</label>
-                    <NativeSelect
+                    <CustomSelect
                       options={TIME_OPTIONS}
                       value={hora}
                       onChange={setHora}
@@ -475,7 +442,7 @@ export default function TurnosFijos() {
                 {/* Cancha */}
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Cancha</label>
-                  <NativeSelect
+                  <CustomSelect
                     options={canchaOptions}
                     value={canchaId}
                     onChange={(v) => setCanchaId(String(v))}

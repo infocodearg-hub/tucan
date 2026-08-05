@@ -9,7 +9,7 @@
  * demo. Al migrar a Supabase, este componente se reemplaza por Supabase Auth.
  */
 import React, { useState } from 'react';
-import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, LogIn, AlertCircle, Volleyball } from 'lucide-react';
 import { useConfig } from '../store';
 
 export const SESSION_KEY = 'tucan_session_v1';
@@ -95,7 +95,7 @@ export default function LoginScreen({ onLogin }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 0 30px rgba(0,230,118,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
           }}>
-            <span style={{ fontSize: 28, lineHeight: 1 }}>⚽</span>
+            <Volleyball size={26} color="white" strokeWidth={2.2} />
           </div>
           <h1 className="font-heading" style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: 4 }}>
             Tu<span style={{ color: 'var(--green)' }}>Can</span>

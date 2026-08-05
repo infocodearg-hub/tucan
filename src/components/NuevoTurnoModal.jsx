@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  X, Check, Calendar, Clock, User, Phone, Plus, ShoppingBag, 
-  Minus, Zap, CreditCard, Building, Wallet, GlassWater, Beer, Wine,
-  Droplets, Package, Shirt, Sparkles, Trophy
+import {
+  X, Check, Calendar, Clock, User, Phone, Plus, ShoppingBag,
+  Minus, Zap, CreditCard, Building, Wallet, Sun, Moon,
 } from 'lucide-react';
-import { COMPLEX_INFO, TIME_SLOTS, CANTINA_PRODUCTS } from '../data/mockData';
+import { useCanchasActivas, useConfig, useProducts } from '../store';
+import { precioSlot, isNightSlot } from '../lib/pricing';
+import { formatARS } from '../lib/format';
+import { iconForProduct } from '../lib/catalog';
 import CustomSelect from './CustomSelect';
 
 const PAYMENT_METHODS = [
@@ -13,39 +15,34 @@ const PAYMENT_METHODS = [
   { value: 'Efectivo Mostrador',         label: 'Efectivo Mostrador',      icon: Wallet },
 ];
 
-const PRODUCT_ICONS = {
-  prod_gatorade: GlassWater,
-  prod_stella: Beer,
-  prod_fernet: Wine,
-  prod_agua: Droplets,
-  prod_coca: GlassWater,
-  prod_papas: Package,
-  prod_pelota: Trophy,
-  prod_pecheras: Shirt,
-  prod_paleta: Sparkles
-};
-
 export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initialCanchaId, initialTime }) {
-  const [canchaId,       setCanchaId]       = useState(initialCanchaId || 'c1');
-  const [time,           setTime]           = useState(initialTime || '20:00');
+  const canchas   = useCanchasActivas();
+  const config    = useConfig();
+  const products  = useProducts();
+  const nightFrom = config?.operacion?.horaNocturnaDesde ?? '19:00';
+  const slots     = config?.operacion?.slots ?? [];
+
+  const [canchaId,       setCanchaId]       = useState(initialCanchaId || canchas[0]?.id || '');
+  const [time,           setTime]           = useState(initialTime || slots[0] || '20:00');
   const [clientName,     setClientName]     = useState('');
   const [clientPhone,    setClientPhone]    = useState('');
   const [paymentStatus,  setPaymentStatus]  = useState('partial');
-  const [depositPaid,    setDepositPaid]    = useState(13000);
+  const [depositPaid,    setDepositPaid]    = useState(0);
   const [paymentMethod,  setPaymentMethod]  = useState('Mercado Pago (Link QR Bot)');
-  const [isFixed,        setIsFixed]        = useState(false);
   const [notes,          setNotes]          = useState('');
   const [cantinaItems,   setCantinaItems]   = useState([]);
 
   if (!isOpen) return null;
 
-  const selectedCancha = COMPLEX_INFO.canchas.find(c => c.id === canchaId) || COMPLEX_INFO.canchas[0];
-  const isNight        = parseInt(time.split(':')[0]) >= 19 || time === '00:00';
-  const basePrice      = isNight ? selectedCancha.priceNight : selectedCancha.priceDay;
-  const cantinaTotal   = cantinaItems.reduce((acc, i) => acc + i.price * i.qty, 0);
-  const grandTotal     = basePrice + cantinaTotal;
-  const actualDeposit  = paymentStatus === 'paid' ? grandTotal : Number(depositPaid);
-  const balanceDue     = grandTotal - actualDeposit;
+  const selectedCancha = canchas.find(c => c.id === canchaId) || canchas[0] || null;
+  const isNight         = isNightSlot(time, nightFrom);
+  const basePrice        = precioSlot(selectedCancha, time, nightFrom);
+  const cantinaTotal     = cantinaItems.reduce((acc, i) => acc + i.precio * i.qty, 0);
+  const grandTotal       = basePrice + cantinaTotal;
+  const actualDeposit    = paymentStatus === 'paid' ? grandTotal : Number(depositPaid);
+  const balanceDue       = grandTotal - actualDeposit;
+
+  const activeProducts = products.filter(p => p.activo).slice(0, 5);
 
   const addCantina = (prod) => setCantinaItems(prev => {
     const ex = prev.find(i => i.id === prod.id);
@@ -53,7 +50,7 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
               : [...prev, { ...prod, qty: 1 }];
   });
 
-  const removeCantina = (id) => setCantinaItems(prev => 
+  const removeCantina = (id) => setCantinaItems(prev =>
     prev.map(i => i.id === id ? { ...i, qty: i.qty - 1 } : i).filter(i => i.qty > 0)
   );
 
@@ -61,25 +58,27 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
     e.preventDefault();
     if (!clientName.trim()) return;
     onSaveBooking({
-      id: 'b_' + Date.now(),
-      canchaId, time, date: new Date().toISOString().split('T')[0],
-      clientName, clientPhone: clientPhone || '+54 9 351 000-0000',
-      status: isFixed ? 'fixed' : paymentStatus,
+      canchaId, time,
+      clientName, clientPhone,
+      status: paymentStatus,
       totalPrice: grandTotal, depositPaid: actualDeposit,
-      paymentMethod, cantinaExtras: cantinaItems, notes, isFixed, channel: 'manual'
+      paymentMethod,
+      cantinaExtras: cantinaItems.map(i => ({ id: i.id, name: i.nombre, price: i.precio, qty: i.qty })),
+      notes, channel: 'manual',
     });
     onClose();
   };
 
   // Options for custom select
-  const canchaOptions = COMPLEX_INFO.canchas.map(c => ({
+  const canchaOptions = canchas.map(c => ({
     value: c.id,
-    label: `${c.name.split(' - ')[0]} · $${(isNight ? c.priceNight : c.priceDay).toLocaleString('es-AR')}`
+    label: `${c.nombre} · ${formatARS(precioSlot(c, time, nightFrom))}`
   }));
 
-  const timeOptions = TIME_SLOTS.map(t => ({
+  const timeOptions = slots.map(t => ({
     value: t,
-    label: `${t} hs ${parseInt(t) >= 19 ? '🌙 Nocturno' : '☀️ Diurno'}`
+    label: `${t} hs ${isNightSlot(t, nightFrom) ? 'Nocturno' : 'Diurno'}`,
+    icon: isNightSlot(t, nightFrom) ? Moon : Sun,
   }));
 
   return (
@@ -144,19 +143,21 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <Zap size={14} color="var(--green)" />
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                  {selectedCancha.name.split(' - ')[0]} · {isNight ? '🌙 Nocturno' : '☀️ Diurno'}
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                  {selectedCancha?.nombre ?? 'Sin canchas activas'} ·
+                  {isNight ? <Moon size={12} /> : <Sun size={12} />}
+                  {isNight ? 'Nocturno' : 'Diurno'}
                 </span>
               </div>
-              <span style={{ fontWeight: 900, color: 'var(--green)', fontSize: '1rem', fontFamily: 'Outfit, sans-serif' }}>
-                ${basePrice.toLocaleString('es-AR')}
+              <span className="font-heading num" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '1rem' }}>
+                {formatARS(basePrice)}
               </span>
             </div>
 
             {/* ─── Client Details ─── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Nombre del Cliente / Equipo *</label>
+                <label className="form-label">Cliente / Equipo *</label>
                 <div className="input-icon-wrap">
                   <User size={15} className="input-icon" />
                   <input
@@ -242,54 +243,57 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
               )}
             </div>
 
-            {/* ─── Cantina Add-ons (Lucide Vector Icons) ─── */}
+            {/* ─── Cantina Add-ons ─── */}
             <div style={{ padding: 14, borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-                  <ShoppingBag size={13} color="var(--green)" /> Adicionales de Cantina
+                  <ShoppingBag size={13} color="var(--text-secondary)" /> Adicionales de Cantina
                 </span>
                 {cantinaTotal > 0 && (
-                  <span style={{ fontWeight: 800, color: 'var(--green)', fontSize: '0.85rem' }}>
-                    +${cantinaTotal.toLocaleString('es-AR')}
+                  <span className="font-heading num" style={{ fontWeight: 800, color: 'var(--green)', fontSize: '0.85rem' }}>
+                    +{formatARS(cantinaTotal)}
                   </span>
                 )}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: cantinaItems.length > 0 ? 10 : 0 }}>
-                {CANTINA_PRODUCTS.slice(0, 5).map(prod => {
-                  const ProdIcon = PRODUCT_ICONS[prod.id] || GlassWater;
-                  return (
-                    <button
-                      key={prod.id}
-                      type="button"
-                      onClick={() => addCantina(prod)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '6px 10px', borderRadius: 8, fontSize: '0.76rem', fontWeight: 600,
-                        background: 'var(--bg-input)', border: '1px solid var(--border-dim)',
-                        color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,230,118,0.4)'; e.currentTarget.style.color = 'var(--green)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-dim)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                    >
-                      <ProdIcon size={13} color="var(--green)" />
-                      <span>{prod.name.split(' ')[0]}</span>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>${(prod.price/1000).toFixed(1)}k</span>
-                      <Plus size={11} color="var(--green)" />
-                    </button>
-                  );
-                })}
-              </div>
+              {activeProducts.length === 0 ? (
+                <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>No hay productos activos en el catálogo.</p>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: cantinaItems.length > 0 ? 10 : 0 }}>
+                  {activeProducts.map(prod => {
+                    const ProdIcon = iconForProduct(prod);
+                    return (
+                      <button
+                        key={prod.id}
+                        type="button"
+                        onClick={() => addCantina(prod)}
+                        className="chip-hoverable"
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '6px 10px', borderRadius: 8, fontSize: '0.76rem', fontWeight: 600,
+                          background: 'var(--bg-input)', border: '1px solid var(--border-dim)',
+                          color: 'var(--text-primary)', cursor: 'pointer',
+                        }}
+                      >
+                        <ProdIcon size={13} color="var(--text-secondary)" />
+                        <span>{prod.nombre.split(' ')[0]}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{formatARS(prod.precio)}</span>
+                        <Plus size={11} color="var(--green)" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {cantinaItems.length > 0 && (
                 <div style={{ borderTop: '1px solid var(--border-dim)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {cantinaItems.map(item => (
                     <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                        {item.qty}× {item.name}
+                        {item.qty}× {item.nombre}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.82rem' }}>
-                          ${(item.price * item.qty).toLocaleString('es-AR')}
+                        <span className="font-heading num" style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.82rem' }}>
+                          {formatARS(item.precio * item.qty)}
                         </span>
                         <button type="button" onClick={() => removeCantina(item.id)} style={{
                           width: 22, height: 22, borderRadius: 6, background: 'rgba(255,79,79,0.1)',
@@ -305,42 +309,27 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
               )}
             </div>
 
-            {/* ─── Fixed & Notes ─── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label className="custom-checkbox">
-                <input
-                  type="checkbox"
-                  checked={isFixed}
-                  onChange={e => setIsFixed(e.target.checked)}
-                />
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                  Registrar como{' '}
-                  <span style={{ color: 'var(--purple)', fontWeight: 700 }}>Turno Fijo Recurrente</span>
-                  {' '}(se repite cada semana)
-                </span>
-              </label>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Observaciones</label>
-                <input
-                  type="text"
-                  placeholder="Ej: Necesitan pecheras, avisan si llueve..."
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  className="form-input"
-                />
-              </div>
+            {/* ─── Notes ─── */}
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Observaciones</label>
+              <input
+                type="text"
+                placeholder="Ej: Necesitan pecheras, avisan si llueve..."
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                className="form-input"
+              />
             </div>
 
             {/* ─── Summary & Submit ─── */}
             <div style={{ borderTop: '1px solid var(--border-dim)', paddingTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 2 }}>Total Turno + Extras</p>
-                <p className="font-heading" style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1 }}>
-                  ${grandTotal.toLocaleString('es-AR')}
+                <p className="font-heading num" style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1 }}>
+                  {formatARS(grandTotal)}
                   {balanceDue > 0 && (
                     <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--amber)', marginLeft: 8 }}>
-                      (${balanceDue.toLocaleString('es-AR')} en puerta)
+                      ({formatARS(balanceDue)} en puerta)
                     </span>
                   )}
                 </p>
@@ -350,7 +339,7 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
                 <button type="button" onClick={onClose} className="btn-secondary" style={{ padding: '10px 18px' }}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn-primary" style={{ padding: '10px 22px' }}>
+                <button type="submit" className="btn-primary" style={{ padding: '10px 22px' }} disabled={!selectedCancha}>
                   <Check size={15} style={{ color: 'var(--on-accent)' }} />
                   Confirmar Turno
                 </button>

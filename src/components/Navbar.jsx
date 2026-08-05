@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Building2, 
-  PlusCircle, 
-  ShoppingBag, 
-  Bell, 
+import {
+  Building2,
+  PlusCircle,
+  ShoppingBag,
+  Bell,
   ChevronDown,
   Settings,
   LogOut,
@@ -11,6 +11,10 @@ import {
   HelpCircle,
   BarChart3,
   Clock,
+  Volleyball,
+  MessageSquare,
+  DollarSign,
+  AlertTriangle,
 } from 'lucide-react';
 import { useConfig, useCanchasActivas, useUIActions } from '../store';
 import { nowTimeWithSeconds } from '../lib/date';
@@ -43,9 +47,9 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
   }, []);
 
   const notifications = [
-    { id: 1, icon: '💬', text: 'Nuevo turno agendado por cliente', sub: 'Marcos Benítez · Cancha 1 19:00 hs', read: false, color: 'var(--green)' },
-    { id: 2, icon: '💰', text: 'Seña recibida $13.000', sub: 'Mercado Pago · Cancha 1 20:00 hs', read: false, color: 'var(--blue)' },
-    { id: 3, icon: '⚠️', text: 'Turno sin seña a las 22:00 hs', sub: 'Santiago Ledesma · Cancha 2', read: true, color: 'var(--amber)' },
+    { id: 1, icon: MessageSquare, text: 'Nuevo turno agendado por cliente', sub: 'Marcos Benítez · Cancha 1 19:00 hs', read: false, color: 'var(--green)' },
+    { id: 2, icon: DollarSign, text: 'Seña recibida $13.000', sub: 'Mercado Pago · Cancha 1 20:00 hs', read: false, color: 'var(--blue)' },
+    { id: 3, icon: AlertTriangle, text: 'Turno sin seña a las 22:00 hs', sub: 'Santiago Ledesma · Cancha 2', read: true, color: 'var(--amber)' },
   ];
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -68,7 +72,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
             boxShadow: '0 0 20px rgba(0,230,118,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
             flexShrink: 0
           }}>
-            <span style={{ fontSize: 20, lineHeight: 1 }}>⚽</span>
+            <Volleyball size={20} color="white" strokeWidth={2.2} />
           </div>
           <div className="hidden sm:block">
             <div className="flex items-center gap-1.5">
@@ -184,7 +188,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
               </div>
               {notifications.map(n => (
                 <div key={n.id} className="dropdown-item" style={{ gap: 10, alignItems: 'flex-start', opacity: n.read ? 0.6 : 1 }}>
-                  <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>{n.icon}</span>
+                  <n.icon size={16} color={n.color} style={{ flexShrink: 0, marginTop: 1 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 1 }}>{n.text}</p>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{n.sub}</p>

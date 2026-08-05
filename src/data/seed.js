@@ -176,6 +176,10 @@ function normalizarBookingsYVentas(canchas, clientes, turnosFijos, productos) {
     const telefono = normalizePhone(b.clientPhone);
     const cliente = clientes.find((c) => c.telefono && c.telefono === telefono);
     const bloqueado = b.status === 'blocked';
+    // `dayOffset` (relativo a hoy, 0 default) reparte la demo en varios días
+    // — si no, la tira semanal y el historial de caja de "otro día" arrancan
+    // siempre vacíos.
+    const fecha = addDays(hoy, b.dayOffset ?? 0);
 
     // El turno fijo de los martes queda enlazado a su recurrencia: si no,
     // se duplicaría contra la proyección.
@@ -183,7 +187,7 @@ function normalizarBookingsYVentas(canchas, clientes, turnosFijos, productos) {
 
     const booking = {
       id: b.id,
-      fecha: hoy,
+      fecha,
       hora: b.time,
       canchaId: b.canchaId,
       clienteId: cliente?.id ?? null,
@@ -201,7 +205,7 @@ function normalizarBookingsYVentas(canchas, clientes, turnosFijos, productos) {
                 id: id('pay'),
                 monto: b.depositPaid,
                 metodo: METODO_DESDE_TEXTO(b.paymentMethod),
-                fecha: nowISO(),
+                fecha: `${fecha}T12:00:00.000Z`,
                 nota: '',
               },
             ]
@@ -224,7 +228,7 @@ function normalizarBookingsYVentas(canchas, clientes, turnosFijos, productos) {
       }));
       sales.push({
         id: id('sale'),
-        fechaHora: nowISO(),
+        fechaHora: `${fecha}T${b.time}:00.000Z`,
         items,
         total: items.reduce((a, i) => a + i.precioUnit * i.cantidad, 0),
         metodoPago: 'a_cuenta_turno',
@@ -236,17 +240,21 @@ function normalizarBookingsYVentas(canchas, clientes, turnosFijos, productos) {
     }
   }
 
-  // Un par de ventas de mostrador para que el historial de caja no arranque vacío
+  // Ventas de mostrador repartidas en varios días para que el historial de
+  // caja no arranque vacío fuera de hoy.
   const mostrador = [
-    { pid: 'prod_gatorade', cantidad: 2, metodo: 'efectivo' },
-    { pid: 'prod_papas', cantidad: 1, metodo: 'mercadopago' },
+    { pid: 'prod_gatorade', cantidad: 2, metodo: 'efectivo', dayOffset: 0, hora: '17:30' },
+    { pid: 'prod_papas', cantidad: 1, metodo: 'mercadopago', dayOffset: 0, hora: '20:15' },
+    { pid: 'prod_pecheras', cantidad: 1, metodo: 'efectivo', dayOffset: -1, hora: '19:05' },
+    { pid: 'prod_fernet', cantidad: 1, metodo: 'transferencia', dayOffset: -1, hora: '21:40' },
+    { pid: 'prod_paleta', cantidad: 2, metodo: 'mercadopago', dayOffset: -2, hora: '18:50' },
   ];
   for (const m of mostrador) {
     const p = productos.find((x) => x.id === m.pid);
     if (!p) continue;
     sales.push({
       id: id('sale'),
-      fechaHora: nowISO(),
+      fechaHora: `${addDays(hoy, m.dayOffset)}T${m.hora}:00.000Z`,
       items: [{ productoId: p.id, nombre: p.nombre, precioUnit: p.precio, cantidad: m.cantidad }],
       total: p.precio * m.cantidad,
       metodoPago: m.metodo,
@@ -258,6 +266,31 @@ function normalizarBookingsYVentas(canchas, clientes, turnosFijos, productos) {
   }
 
   return { bookings, sales };
+}
+
+/** Gastos de ejemplo repartidos en los últimos días — para que Cierre de
+ * Caja y la pestaña Gastos no arranquen vacíos en la demo. */
+function sembrarGastos(hoy) {
+  const filas = [
+    { concepto: 'Sueldo cuidador de cancha', categoria: 'sueldos', monto: 45000, dayOffset: 0 },
+    { concepto: 'Pastas para reflectores LED', categoria: 'mantenimiento', monto: 18500, dayOffset: -1 },
+    { concepto: 'Factura de luz', categoria: 'servicios', monto: 62000, dayOffset: -2 },
+    { concepto: 'Reposición de bebidas cantina', categoria: 'insumos', monto: 34000, dayOffset: -2 },
+    { concepto: 'Service portón de acceso', categoria: 'otro', monto: 9000, dayOffset: -3 },
+  ];
+  return filas.map((g) => {
+    const fecha = addDays(hoy, g.dayOffset);
+    return {
+      id: id('gto'),
+      fecha,
+      concepto: g.concepto,
+      monto: g.monto,
+      categoria: g.categoria,
+      notas: '',
+      createdAt: `${fecha}T12:00:00.000Z`,
+      updatedAt: `${fecha}T12:00:00.000Z`,
+    };
+  });
 }
 
 function normalizarConfig() {
@@ -299,6 +332,7 @@ function normalizarConfig() {
 
 /** Estado inicial completo, ya normalizado. */
 export function createSeedData() {
+  const hoy = todayISO();
   const canchas = normalizarCanchas();
   const clientes = normalizarClientes();
   const productos = normalizarProductos();
@@ -313,5 +347,6 @@ export function createSeedData() {
     products: productos,
     turnosFijos,
     sales,
+    expenses: sembrarGastos(hoy),
   };
 }

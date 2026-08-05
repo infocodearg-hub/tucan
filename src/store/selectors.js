@@ -31,6 +31,12 @@ export const selectSalesForBooking = (state, bookingId) =>
 export const selectTurnosFijos = (state) => state.turnosFijos;
 export const selectTurnoFijo = (state, id) => state.turnosFijos.find((tf) => tf.id === id) ?? null;
 
+export const selectExpenses = (state) => state.expenses;
+export const selectExpense = (state, id) => state.expenses.find((g) => g.id === id) ?? null;
+export const selectExpensesForDate = (state, fecha) => state.expenses.filter((g) => g.fecha === fecha);
+export const selectExpensesSum = (state, fecha) =>
+  selectExpensesForDate(state, fecha).reduce((acc, g) => acc + toNumber(g.monto), 0);
+
 export const selectBookings = (state) => state.bookings;
 export const selectBooking = (state, id) => state.bookings.find((b) => b.id === id) ?? null;
 
@@ -168,4 +174,58 @@ export function selectCajaDelDia(state, fecha) {
   );
   const totalVentas = ventasHoy.reduce((acc, s) => acc + toNumber(s.total), 0);
   return { ventas: ventasHoy, totalVentas };
+}
+
+/**
+ * Cierre de caja diario: plata que efectivamente entró/salió ese día civil.
+ * Distinto de `selectDayKpis`/`selectCajaDelDia` (que agrupan por la fecha del
+ * TURNO jugado, no por cuándo se cobró) — una seña cobrada hoy puede ser de un
+ * turno que se juega la semana que viene, y viceversa.
+ */
+export function selectCierreCajaDelDia(state, fecha) {
+  const ingresosTurnos = state.bookings.reduce((acc, b) => {
+    const pagosHoy = (b.pagos ?? []).filter((p) => p.fecha?.slice(0, 10) === fecha);
+    return acc + pagosHoy.reduce((a, p) => a + toNumber(p.monto), 0);
+  }, 0);
+
+  // Solo ventas de mostrador SIN turno asociado: las que tienen bookingId ya
+  // están adentro de `ingresosTurnos` cuando el cliente paga el turno — sumarlas
+  // acá también contaría la misma plata dos veces.
+  const ingresosCantina = state.sales
+    .filter((s) => !s.anulada && !s.bookingId && s.fechaHora.slice(0, 10) === fecha)
+    .reduce((acc, s) => acc + toNumber(s.total), 0);
+
+  const egresos = selectExpensesSum(state, fecha);
+
+  return {
+    ingresosTurnos,
+    ingresosCantina,
+    egresos,
+    neto: ingresosTurnos + ingresosCantina - egresos,
+  };
+}
+
+/**
+ * Filas individuales de pagos de turnos cobrados ese día (mismo criterio de
+ * `pago.fecha` que usa `selectCierreCajaDelDia` para `ingresosTurnos` — no
+ * duplicar el criterio, solo exponer el detalle que ese selector descarta).
+ */
+export function selectPagosDelDia(state, fecha) {
+  const filas = [];
+  for (const b of state.bookings) {
+    for (const p of b.pagos ?? []) {
+      if (p.fecha?.slice(0, 10) !== fecha) continue;
+      const cancha = selectCancha(state, b.canchaId);
+      filas.push({
+        pagoId: p.id,
+        bookingId: b.id,
+        clienteNombre: b.clienteNombre,
+        canchaNombre: cancha?.nombre ?? b.canchaId,
+        hora: b.hora,
+        monto: toNumber(p.monto),
+        metodo: p.metodo,
+      });
+    }
+  }
+  return filas;
 }

@@ -111,6 +111,21 @@ export const ESTADO_MES_VARIANT = {
   deuda: 'bloqueado',
 };
 
+// ─────────────────────────────────────────────── gastos
+
+export const GASTO_CATEGORIA_LABEL = {
+  sueldos: 'Sueldos',
+  mantenimiento: 'Mantenimiento',
+  servicios: 'Servicios',
+  insumos: 'Insumos',
+  otro: 'Otro',
+};
+
+export const GASTO_CATEGORIAS = Object.entries(GASTO_CATEGORIA_LABEL).map(([value, label]) => ({
+  value,
+  label,
+}));
+
 // ─────────────────────────────────────────────── clientes
 
 /**

@@ -144,6 +144,12 @@ export function rangeDays(startISO, count) {
   return out;
 }
 
+/** Cantidad de días de un mes (`'2026-08'` → 31). */
+export function daysInMonth(mKey) {
+  const [y, m] = mKey.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
 /** Todas las fechas de un mes que caen en un día de semana dado. */
 export function occurrencesInMonth(mKey, diaSemana) {
   const [y, m] = mKey.split('-').map(Number);

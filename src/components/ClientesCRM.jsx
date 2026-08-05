@@ -152,7 +152,7 @@ export default function ClientesCRM({ clients }) {
                     background: 'linear-gradient(140deg, rgba(0,176,255,0.15), rgba(0,176,255,0.05))',
                     border: '1px solid rgba(0,176,255,0.3)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 900, color: 'var(--blue)', fontSize: '0.88rem', fontFamily: 'Outfit, sans-serif'
+                    fontWeight: 900, color: 'var(--blue)', fontSize: '0.88rem'
                   }}>
                     {client.name.substring(0, 2).toUpperCase()}
                   </div>
@@ -164,7 +164,7 @@ export default function ClientesCRM({ clients }) {
                 <div style={{
                   padding: '4px 10px', borderRadius: 99,
                   background: scoreStyle.bg, border: `1px solid ${scoreStyle.border}`,
-                  color: scoreStyle.color, fontSize: '0.8rem', fontWeight: 900, fontFamily: 'Outfit, sans-serif'
+                  color: scoreStyle.color, fontSize: '0.8rem', fontWeight: 900
                 }}>
                   {client.score}
                 </div>

@@ -1,64 +1,71 @@
 import React from 'react';
-import { 
-  CalendarDays, 
-  Repeat, 
-  ShoppingBag, 
-  Users, 
-  BarChart3, 
-  Settings, 
-  Globe,
+import {
+  CalendarDays,
+  Repeat,
+  ShoppingBag,
+  Users,
+  BarChart3,
+  Settings,
   Sparkles
 } from 'lucide-react';
-
-const menuItems = [
-  { 
-    id: 'grilla', 
-    label: 'Grilla de Turnos', 
-    icon: CalendarDays, 
-    badge: 'En Vivo', 
-    badgeStyle: { background: 'rgba(0,230,118,0.15)', color: 'var(--green)', border: '1px solid rgba(0,230,118,0.3)' }
-  },
-  { 
-    id: 'turnos_fijos', 
-    label: 'Turnos Fijos', 
-    icon: Repeat, 
-    badge: '4 equipos', 
-    badgeStyle: { background: 'rgba(185,136,252,0.12)', color: 'var(--purple)', border: '1px solid rgba(185,136,252,0.3)' }
-  },
-  { 
-    id: 'cantina', 
-    label: 'Caja & Cantina POS', 
-    icon: ShoppingBag, 
-    badge: null 
-  },
-  { 
-    id: 'clientes', 
-    label: 'Clientes & Jugadores', 
-    icon: Users, 
-    badge: null 
-  },
-  { 
-    id: 'reportes', 
-    label: 'Reportes & Finanzas', 
-    icon: BarChart3, 
-    badge: null 
-  },
-  { 
-    id: 'configuracion', 
-    label: 'Configuración', 
-    icon: Settings, 
-    badge: null 
-  },
-  { 
-    id: 'vista_publica', 
-    label: 'Web Pública Jugador', 
-    icon: Globe, 
-    badge: 'QR', 
-    badgeStyle: { background: 'rgba(200,255,0,0.1)', color: 'var(--volt)', border: '1px solid rgba(200,255,0,0.3)' }
-  },
-];
+import { useTurnosFijos } from '../store';
+import { pluralize } from '../lib/format';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
+  const turnosFijos = useTurnosFijos();
+  const equiposActivos = turnosFijos.filter((tf) => tf.activo).length;
+
+  const menuItems = [
+    {
+      id: 'grilla',
+      label: 'Grilla de Turnos',
+      icon: CalendarDays,
+      badge: 'En Vivo',
+      badgeStyle: { background: 'rgba(0,230,118,0.15)', color: 'var(--green)', border: '1px solid rgba(0,230,118,0.3)' }
+    },
+    {
+      id: 'turnos_fijos',
+      label: 'Turnos Fijos',
+      icon: Repeat,
+      badge: equiposActivos > 0 ? pluralize(equiposActivos, 'equipo') : null,
+      badgeStyle: { background: 'rgba(185,136,252,0.12)', color: 'var(--purple)', border: '1px solid rgba(185,136,252,0.3)' }
+    },
+    {
+      id: 'cantina',
+      label: 'Caja & Cantina POS',
+      icon: ShoppingBag,
+      badge: null
+    },
+    {
+      id: 'clientes',
+      label: 'Clientes & Jugadores',
+      icon: Users,
+      badge: null
+    },
+    {
+      id: 'reportes',
+      label: 'Reportes & Finanzas',
+      icon: BarChart3,
+      badge: null
+    },
+    {
+      id: 'configuracion',
+      label: 'Configuración',
+      icon: Settings,
+      badge: null
+    },
+    // Vista Pública / QR: movida a su propia página en /reserva (ver src/main.jsx).
+    // Se saca del panel de administración por ahora — el link y QR para compartir
+    // viven en Configuración > Complejo.
+    // {
+    //   id: 'vista_publica',
+    //   label: 'Web Pública Jugador',
+    //   icon: Globe,
+    //   badge: 'QR',
+    //   badgeStyle: { background: 'rgba(200,255,0,0.1)', color: 'var(--volt)', border: '1px solid rgba(200,255,0,0.3)' }
+    // },
+  ];
+
   return (
     <aside className="sidebar hidden md:flex">
       {/* ─── Navigation ─── */}

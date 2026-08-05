@@ -11,12 +11,71 @@
  *   - senaMinimaPorcentaje → config.pagos.senaMinimaPorcentaje (controlado)
  *   - Toast de éxito al guardar (no un setSaved cosmético)
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Settings, Building2, CreditCard, ShieldCheck, Save,
-  Bot, Bell, MapPin, Zap, Check,
+  Building2, CreditCard, ShieldCheck, Save,
+  Bot, MapPin, Zap, Plus, Pencil, Trash2, EyeOff, Eye, Sun, Moon,
+  QrCode, Copy, Check,
 } from 'lucide-react';
-import { useConfig, useConfigActions, useCanchaActions, useToast, useCanchasActivas } from '../store';
+import QRCode from 'qrcode';
+import { useConfig, useConfigActions, useCanchaActions, useToast, useCanchas, useAppState } from '../store';
+import { useConfirm } from './ConfirmDialog';
+import NuevoCanchaModal from './NuevoCanchaModal';
+import { DEPORTE_LABEL } from '../lib/status';
+
+// ─── Link + QR para compartir la reserva pública ──────────────────────────────
+
+function EnlaceReservaPublica() {
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [copiado, setCopiado] = useState(false);
+  const url = `${window.location.origin}/reserva`;
+
+  useEffect(() => {
+    QRCode.toDataURL(url, { width: 176, margin: 1, color: { dark: '#0a0f0c', light: '#ffffff' } })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(''));
+  }, [url]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      // Clipboard no disponible (ej. contexto no seguro) — el link igual se ve en pantalla.
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 18 }}>
+      {qrDataUrl && (
+        <img
+          src={qrDataUrl}
+          alt="Código QR para reservar"
+          style={{ width: 110, height: 110, borderRadius: 10, border: '1px solid var(--border-dim)', flexShrink: 0 }}
+        />
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, flex: 1 }}>
+        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Compartí este link o imprimí el QR para que tus clientes reserven turnos desde el celular.
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <code style={{
+            fontSize: '0.78rem', color: 'var(--text-primary)', background: 'var(--bg-input)',
+            border: '1px solid var(--border-dim)', borderRadius: 8, padding: '7px 10px',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%',
+          }}>
+            {url}
+          </code>
+          <button type="button" onClick={handleCopy} className="btn-secondary" style={{ padding: '7px 12px', fontSize: '0.78rem' }}>
+            {copiado ? <Check size={13} color="var(--green)" /> : <Copy size={13} />}
+            {copiado ? 'Copiado' : 'Copiar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
@@ -55,14 +114,68 @@ function ToggleRow({ label, sub, value, onChange }) {
   );
 }
 
+// ─── Tabs ──────────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'complejo', label: 'Complejo' },
+  { id: 'canchas', label: 'Canchas' },
+  { id: 'cobros', label: 'Cobros' },
+  { id: 'bot', label: 'Bot IA' },
+];
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function ConfiguracionComplejo() {
   const config        = useConfig();
   const configActions = useConfigActions();
   const canchaActions = useCanchaActions();
-  const canchas       = useCanchasActivas();
+  const canchas       = useCanchas();
+  const appState      = useAppState();
   const toast         = useToast();
+  const { confirm, ConfirmDialogMount } = useConfirm();
+
+  const [tab, setTab] = useState('complejo');
+  const [canchaModal, setCanchaModal] = useState(null); // null | 'new' | Cancha
+
+  // ─── Helpers de gestión de canchas ────────────────────────────────────────
+
+  const handleSaveCancha = (data) => {
+    const isEdit = canchaModal && canchaModal !== 'new';
+    const result = isEdit
+      ? canchaActions.actualizar(canchaModal.id, data)
+      : canchaActions.crear(data);
+    if (!result.ok) return result;
+    toast.success(isEdit ? `"${data.nombre}" actualizada` : `Cancha "${data.nombre}" agregada`);
+    setCanchaModal(null);
+    return result;
+  };
+
+  const handleToggleActiva = (cancha) => {
+    canchaActions.actualizar(cancha.id, { activa: !cancha.activa });
+    toast.info(cancha.activa ? `"${cancha.nombre}" desactivada` : `"${cancha.nombre}" reactivada`);
+  };
+
+  const handleDeleteCancha = async (cancha) => {
+    // Se valida ANTES de despachar (no se puede leer `ui.lastError` recién puesto
+    // por crossSlice en el mismo tick: el dispatch de useReducer no expone el
+    // estado resultante hasta el próximo render).
+    const tieneTurnos = appState.bookings.some(
+      (b) => b.canchaId === cancha.id && b.estado !== 'cancelado'
+    );
+    if (tieneTurnos) {
+      toast.error('No se puede eliminar: la cancha tiene turnos cargados. Desactivala en su lugar.');
+      return;
+    }
+    const ok = await confirm({
+      title: 'Eliminar cancha',
+      message: `Se borra "${cancha.nombre}" definitivamente. Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
+    canchaActions.eliminar(cancha.id);
+    toast.success(`"${cancha.nombre}" eliminada`);
+  };
 
   // ─── Helpers de actualización ─────────────────────────────────────────────
 
@@ -111,11 +224,24 @@ export default function ConfiguracionComplejo() {
         </button>
       </div>
 
-      <form onSubmit={handleSave}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+      {/* ─── Tabs ─── */}
+      <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`tab-btn ${tab === t.id ? 'active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-          {/* ─── Datos Generales ─── */}
-          <Section title="Datos del Complejo" icon={<Building2 size={15} />} iconColor="var(--green)">
+      <form onSubmit={handleSave}>
+
+        {tab === 'complejo' && (
+          <>
+          <Section title="Datos del Complejo" icon={<Building2 size={15} />} iconColor="var(--text-secondary)">
             <div className="form-group">
               <label className="form-label">Nombre Comercial</label>
               <input
@@ -159,18 +285,71 @@ export default function ConfiguracionComplejo() {
             </div>
           </Section>
 
-          {/* ─── Tarifas por Cancha ─── */}
+          <Section title="Reserva Online" icon={<QrCode size={15} />} iconColor="var(--volt)">
+            <EnlaceReservaPublica />
+          </Section>
+          </>
+        )}
+
+        {tab === 'canchas' && (
           <Section title="Tarifas por Cancha" icon={<Zap size={15} />} iconColor="var(--volt)">
+            <button
+              type="button"
+              onClick={() => setCanchaModal('new')}
+              className="btn-secondary"
+              style={{ alignSelf: 'flex-start', padding: '7px 14px', fontSize: '0.8rem' }}
+            >
+              <Plus size={13} /> Nueva Cancha
+            </button>
+
             {canchas.map((c) => (
-              <div key={c.id} style={{ padding: '12px 14px', borderRadius: 11, background: 'var(--bg-surface)', border: `1px solid var(--border-dim)`, borderLeft: `3px solid ${c.color ?? 'var(--green)'}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color ?? 'var(--green)', display: 'inline-block' }} />
-                  <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem' }}>{c.nombre}</span>
-                  {c.subtitulo && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>· {c.subtitulo}</span>}
+              <div
+                key={c.id}
+                style={{
+                  padding: '12px 14px', borderRadius: 11, background: 'var(--bg-surface)',
+                  border: `1px solid var(--border-dim)`, borderLeft: `3px solid ${c.color ?? 'var(--green)'}`,
+                  opacity: c.activa ? 1 : 0.55,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color ?? 'var(--green)', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.nombre}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                    <button type="button" onClick={() => setCanchaModal(c)} aria-label={`Editar ${c.nombre}`} className="btn-icon">
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActiva(c)}
+                      aria-label={c.activa ? `Desactivar ${c.nombre}` : `Reactivar ${c.nombre}`}
+                      className="btn-icon"
+                    >
+                      {c.activa ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                    {!c.activa && (
+                      <button type="button" onClick={() => handleDeleteCancha(c)} aria-label={`Eliminar ${c.nombre}`} className="btn-icon">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 </div>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.subtitulo ? `${c.subtitulo} · ` : ''}{DEPORTE_LABEL[c.deporte] ?? c.deporte}
+                  {!c.activa && (
+                    <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--text-secondary)', padding: '1px 8px', borderRadius: 99, border: '1px solid var(--border-dim)' }}>
+                      Inactiva
+                    </span>
+                  )}
+                </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>☀️ Precio Diurno ($)</label>
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.65rem' }}>
+                      <Sun size={11} /> Precio Diurno ($)
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -183,7 +362,9 @@ export default function ConfiguracionComplejo() {
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>🌙 Precio Nocturno ($)</label>
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.65rem' }}>
+                      <Moon size={11} /> Precio Nocturno ($)
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -216,8 +397,9 @@ export default function ConfiguracionComplejo() {
               </span>
             </div>
           </Section>
+        )}
 
-          {/* ─── Cobros & Mercado Pago ─── */}
+        {tab === 'cobros' && (
           <Section title="Cobros & Mercado Pago" icon={<CreditCard size={15} />} iconColor="var(--blue)">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 11, background: 'rgba(0,230,118,0.07)', border: '1px solid rgba(0,230,118,0.25)' }}>
               <ShieldCheck size={18} color="var(--green)" style={{ flexShrink: 0 }} />
@@ -250,12 +432,14 @@ export default function ConfiguracionComplejo() {
               />
             </div>
 
-            <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-              ⚡ <strong style={{ color: 'var(--text-primary)' }}>OCR / Visión IA:</strong> El bot lee capturas de pago y verifica CBU + monto en segundos.
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              <Zap size={14} color="var(--text-secondary)" style={{ flexShrink: 0, marginTop: 2 }} />
+              <span><strong style={{ color: 'var(--text-primary)' }}>OCR / Visión IA:</strong> El bot lee capturas de pago y verifica CBU + monto en segundos.</span>
             </div>
           </Section>
+        )}
 
-          {/* ─── Bot IA & Notificaciones ─── */}
+        {tab === 'bot' && (
           <Section title="Bot IA & Notificaciones" icon={<Bot size={15} />} iconColor="var(--purple)">
             <ToggleRow
               label="WhatsApp Bot Activo"
@@ -292,9 +476,19 @@ export default function ConfiguracionComplejo() {
               onChange={(v) => updateIntegracion('ocrComprobantes', v)}
             />
           </Section>
-
-        </div>
+        )}
       </form>
+
+      {canchaModal && (
+        <NuevoCanchaModal
+          key={canchaModal === 'new' ? 'new' : canchaModal.id}
+          isOpen
+          cancha={canchaModal === 'new' ? null : canchaModal}
+          onClose={() => setCanchaModal(null)}
+          onSave={handleSaveCancha}
+        />
+      )}
+      {ConfirmDialogMount}
     </div>
   );
 }

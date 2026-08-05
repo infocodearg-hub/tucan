@@ -1,10 +1,16 @@
 /**
- * DateNav.jsx — Fase 3
+ * DateNav.jsx — Fase 3 + calendario propio
  *
- * Navegador de fechas: chevrones, picker nativo, tira de 7 días con punto
- * de ocupación. Escribe directamente en ui.selectedDate del store.
+ * Navegador de fechas: chevrones, calendario propio (popover), tira de 7
+ * días con punto de ocupación. Escribe directamente en ui.selectedDate del
+ * store.
+ *
+ * El calendario es propio (no `<input type="date">` + showPicker()) porque
+ * el picker nativo del SO no se puede estilar — quedaba un cuadro gris
+ * genérico pegoteado sobre el resto de la UI, sin relación visual con la
+ * app.
  */
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import {
   useSelectedDate,
@@ -13,11 +19,17 @@ import {
 } from '../store';
 import {
   addDays,
+  addMonths,
+  dayOfWeek,
+  daysInMonth,
   formatLongDate,
+  formatMonth,
+  monthKey,
   relativeDayLabel,
   startOfWeek,
   rangeDays,
   todayISO,
+  DIAS_SEMANA,
 } from '../lib/date';
 
 // ─── Mini KPI dot por día ─────────────────────────────────────────────────────
@@ -73,11 +85,121 @@ function DayCell({ date, isSelected, onClick }) {
   );
 }
 
+// ─── Calendario propio (popover) ───────────────────────────────────────────────
+function CalendarPopover({ selectedDate, onSelect, onClose }) {
+  const [viewMonth, setViewMonth] = useState(monthKey(selectedDate));
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onClose]);
+
+  const first = `${viewMonth}-01`;
+  const leadBlanks = dayOfWeek(first) - 1; // 0 si el 1° cae lunes
+  const total = daysInMonth(viewMonth);
+  const cells = [
+    ...Array.from({ length: leadBlanks }, () => null),
+    ...Array.from({ length: total }, (_, i) => `${viewMonth}-${String(i + 1).padStart(2, '0')}`),
+  ];
+  const today = todayISO();
+  const weekdayLabels = DIAS_SEMANA.slice(1).map((d) => d.corto[0]);
+
+  return (
+    <div
+      ref={ref}
+      className="dropdown-menu"
+      role="dialog"
+      aria-label="Elegir fecha"
+      style={{
+        position: 'absolute',
+        top: 'calc(100% + 6px)',
+        left: 0,
+        width: 'min(296px, calc(100vw - 48px))',
+        zIndex: 'var(--z-popover)',
+        padding: 12,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <button
+          type="button"
+          className="btn-icon"
+          style={{ width: 30, height: 30 }}
+          onClick={() => setViewMonth(monthKey(addMonths(first, -1)))}
+          aria-label="Mes anterior"
+        >
+          <ChevronLeft size={14} />
+        </button>
+        <span className="font-heading" style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+          {formatMonth(viewMonth)}
+        </span>
+        <button
+          type="button"
+          className="btn-icon"
+          style={{ width: 30, height: 30 }}
+          onClick={() => setViewMonth(monthKey(addMonths(first, 1)))}
+          aria-label="Mes siguiente"
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+        {weekdayLabels.map((l, i) => (
+          <span key={i} style={{ textAlign: 'center', fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            {l}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {cells.map((iso, i) => {
+          if (!iso) return <span key={`b${i}`} />;
+          const isSelected = iso === selectedDate;
+          const isToday = iso === today;
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => { onSelect(iso); onClose(); }}
+              style={{
+                aspectRatio: '1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 8,
+                fontSize: '0.78rem',
+                fontWeight: isSelected ? 900 : isToday ? 800 : 600,
+                cursor: 'pointer',
+                color: isSelected ? 'var(--on-accent)' : isToday ? 'var(--green)' : 'var(--text-primary)',
+                background: isSelected ? 'var(--green)' : isToday ? 'rgba(0,230,118,0.1)' : 'transparent',
+                border: isToday && !isSelected ? '1px solid rgba(0,230,118,0.35)' : '1px solid transparent',
+              }}
+            >
+              {Number(iso.slice(-2))}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function DateNav() {
   const selectedDate  = useSelectedDate();
   const { setSelectedDate } = useUIActions();
-  const pickerRef     = useRef(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const weekStart = startOfWeek(selectedDate);
   const weekDays  = rangeDays(weekStart, 7);
@@ -106,49 +228,43 @@ export default function DateNav() {
           <ChevronLeft size={16} />
         </button>
 
-        {/* Trigger del picker nativo */}
-        <button
-          onClick={() => pickerRef.current?.showPicker()}
-          style={{
-            flex:           1,
-            display:        'flex',
-            alignItems:     'center',
-            gap:             7,
-            padding:        '7px 12px',
-            borderRadius:   10,
-            background:     'var(--bg-surface)',
-            border:         '1px solid var(--border-dim)',
-            cursor:         'pointer',
-            minWidth:        0,
-          }}
-        >
-          <CalendarDays size={14} color="var(--green)" style={{ flexShrink: 0 }} />
-          <span style={{
-            fontWeight:     800,
-            fontSize:       '0.84rem',
-            color:          'var(--text-primary)',
-            overflow:       'hidden',
-            textOverflow:   'ellipsis',
-            whiteSpace:     'nowrap',
-          }}>
-            {formatLongDate(selectedDate)}
-          </span>
-
-          {/* Input nativo oculto — da la rueda del SO en mobile gratis */}
-          <input
-            ref={pickerRef}
-            type="date"
-            value={selectedDate}
-            onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <button
+            onClick={() => setIsCalendarOpen((o) => !o)}
             style={{
-              position:   'absolute',
-              opacity:     0,
-              pointerEvents: 'none',
-              width:       0,
-              height:      0,
+              width:          '100%',
+              display:        'flex',
+              alignItems:     'center',
+              gap:             7,
+              padding:        '7px 12px',
+              borderRadius:   10,
+              background:     'var(--bg-surface)',
+              border:         `1px solid ${isCalendarOpen ? 'var(--green)' : 'var(--border-dim)'}`,
+              cursor:         'pointer',
+              minWidth:        0,
             }}
-          />
-        </button>
+          >
+            <CalendarDays size={14} color="var(--green)" style={{ flexShrink: 0 }} />
+            <span style={{
+              fontWeight:     800,
+              fontSize:       '0.84rem',
+              color:          'var(--text-primary)',
+              overflow:       'hidden',
+              textOverflow:   'ellipsis',
+              whiteSpace:     'nowrap',
+            }}>
+              {formatLongDate(selectedDate)}
+            </span>
+          </button>
+
+          {isCalendarOpen && (
+            <CalendarPopover
+              selectedDate={selectedDate}
+              onSelect={setSelectedDate}
+              onClose={() => setIsCalendarOpen(false)}
+            />
+          )}
+        </div>
 
         <button
           className="btn-icon"
