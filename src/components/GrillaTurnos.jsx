@@ -244,12 +244,12 @@ export default function GrillaTurnos({ bookings, onOpenNuevoTurnoWithSlot, onOpe
       {/* ─── Filters ─── */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center',
-        justifyContent: 'space-between', gap: 10,
+        justifyContent: 'space-between', gap: 10, minWidth: 0,
         padding: '10px 14px', borderRadius: 14,
         background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
       }}>
         {/* Sport Filter */}
-        <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%' }}>
+        <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
           {[
             { key: 'all',      label: 'Todos' },
             { key: 'futbol5',  label: '⚽ Fútbol 5' },

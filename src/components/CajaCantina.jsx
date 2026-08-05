@@ -231,19 +231,21 @@ export default function CajaCantina() {
       </div>
 
       {/* ─── POS Grid ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16 }}>
+      <div className="pos-grid">
 
-        {/* Left: Catálogo */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Left: Catálogo — minWidth:0 es obligatorio: los ítems de grid no se
+            achican por debajo de su contenido mínimo por default, y acá adentro
+            hay una fila de tabs sin wrap que si no se "revienta" el track */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
 
           {/* Category Tabs + Search */}
           <div style={{
             display: 'flex', flexWrap: 'wrap', alignItems: 'center',
-            justifyContent: 'space-between', gap: 10,
+            justifyContent: 'space-between', gap: 10, minWidth: 0,
             padding: '12px 14px', borderRadius: 14,
             background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
           }}>
-            <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%' }}>
+            <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
               {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                 <button
                   key={key}
@@ -389,7 +391,7 @@ export default function CajaCantina() {
           padding: '18px', borderRadius: 16,
           background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-          gap: 16,
+          gap: 16, minWidth: 0,
         }}>
           <div>
             {/* Cart header */}

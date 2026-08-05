@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BarChart3, TrendingUp, DollarSign, Zap, PieChart, ArrowUpRight, Download, GlassWater, Beer, Wine, Trophy, Calendar } from 'lucide-react';
 import CustomSelect from './CustomSelect';
+import { formatARS, formatARSCompact } from '../lib/format';
 
 const COURT_DATA = [
   { name: 'Cancha 1',  type: 'Fútbol 5',  revenue: 1240000, pct: 43.6, color: 'var(--green)' },
@@ -58,11 +59,11 @@ export default function ReportesAnalytics() {
       </div>
 
       {/* KPI Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
         {[
-          { label: 'Recaudación Total', value: '$2.840.000', sub: '+18.4% vs mes anterior', subColor: 'var(--green)', icon: <DollarSign size={18} />, accent: 'green' },
+          { label: 'Recaudación Total', value: formatARS(2840000), sub: '+18.4% vs mes anterior', subColor: 'var(--green)', icon: <DollarSign size={18} />, accent: 'green' },
           { label: 'Ocupación Pico', value: '94.2%', sub: 'Prácticamente agotado', subColor: 'var(--amber)', icon: <Zap size={18} />, accent: 'volt' },
-          { label: 'Ventas Cantina', value: '$620.000', sub: '21.8% de ingresos totales', subColor: 'var(--blue)', icon: <PieChart size={18} />, accent: 'blue' },
+          { label: 'Ventas Cantina', value: formatARS(620000), sub: '21.8% de ingresos totales', subColor: 'var(--blue)', icon: <PieChart size={18} />, accent: 'blue' },
           { label: 'Crecimiento YoY', value: '+31%', sub: 'vs Agosto 2025', subColor: 'var(--purple)', icon: <TrendingUp size={18} />, accent: 'purple' },
         ].map((k, i) => {
           const accents = {
@@ -74,14 +75,14 @@ export default function ReportesAnalytics() {
           const a = accents[k.accent];
           return (
             <div key={i} className="kpi-card">
-              <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p className="label-caps truncate-2" style={{ marginBottom: 4 }}>
                   {k.label}
                 </p>
-                <p className="font-heading" style={{ fontSize: 'clamp(1.1rem, 3.8vw, 1.45rem)', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <p className="font-heading num truncate-1" style={{ fontSize: 'clamp(1.1rem, 3.8vw, 1.45rem)', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
                   {k.value}
                 </p>
-                <p style={{ fontSize: '0.7rem', color: k.subColor, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <p className="truncate-2" style={{ fontSize: '0.7rem', color: k.subColor, fontWeight: 700, lineHeight: 1.35 }}>
                   {k.sub}
                 </p>
               </div>
@@ -104,22 +105,27 @@ export default function ReportesAnalytics() {
               <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>Promedio por día de la semana</p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 110 }}>
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 6, height: 110 }}>
             {WEEK_DATA.map((d, i) => (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: d.pct >= 90 ? 'var(--green)' : 'var(--text-muted)' }}>
+                <span className="num" style={{ fontSize: '0.65rem', fontWeight: 800, color: d.pct >= 90 ? 'var(--green)' : 'var(--text-muted)' }}>
                   {d.pct}%
                 </span>
-                <div style={{
-                  width: '100%', borderRadius: '6px 6px 0 0', position: 'relative', overflow: 'hidden',
-                  height: `${Math.max(d.pct, 8)}%`, minHeight: 8,
-                  background: d.pct >= 90 
-                    ? 'linear-gradient(to top, var(--green), var(--green-glow))' 
-                    : d.pct >= 70 
-                      ? 'linear-gradient(to top, var(--blue), var(--blue))'
-                      : 'rgba(255,255,255,0.08)',
-                  boxShadow: d.pct >= 90 ? '0 0 12px rgba(0,230,118,0.3)' : 'none'
-                }} />
+                {/* Envoltorio con altura definida (flex:1 dentro de un padre de 110px) —
+                    sin esto, el % de altura de la barra no tiene contra qué resolverse
+                    y siempre queda en el mínimo de 8px. */}
+                <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
+                  <div style={{
+                    width: '100%', borderRadius: '6px 6px 0 0', overflow: 'hidden',
+                    height: `${Math.max(d.pct, 6)}%`,
+                    background: d.pct >= 90
+                      ? 'linear-gradient(to top, var(--green), var(--green-glow))'
+                      : d.pct >= 70
+                        ? 'var(--blue)'
+                        : 'rgba(255,255,255,0.08)',
+                    boxShadow: d.pct >= 90 ? '0 0 12px rgba(0,230,118,0.3)' : 'none'
+                  }} />
+                </div>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{d.day}</span>
               </div>
             ))}
@@ -141,8 +147,8 @@ export default function ReportesAnalytics() {
                     <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', flexShrink: 0 }}>{c.type}</span>
                   </div>
-                  <span style={{ fontWeight: 800, color: c.color, fontSize: '0.85rem', fontFamily: 'Outfit,sans-serif', flexShrink: 0 }}>
-                    ${(c.revenue/1000).toFixed(0)}k
+                  <span className="font-heading num" style={{ fontWeight: 800, color: c.color, fontSize: '0.85rem', flexShrink: 0 }}>
+                    {formatARSCompact(c.revenue)}
                   </span>
                 </div>
                 <div style={{ height: 7, borderRadius: 8, background: 'var(--bg-surface)', overflow: 'hidden', position: 'relative' }}>
@@ -190,8 +196,8 @@ export default function ReportesAnalytics() {
                       <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', flexShrink: 0 }}>{item.qty} u.</span>
                     </div>
                   </div>
-                  <span className="font-heading" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '0.85rem', flexShrink: 0 }}>
-                    ${(item.revenue/1000).toFixed(0)}k
+                  <span className="font-heading num" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '0.85rem', flexShrink: 0 }}>
+                    {formatARSCompact(item.revenue)}
                   </span>
                 </div>
               );

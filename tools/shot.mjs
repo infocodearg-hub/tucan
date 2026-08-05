@@ -30,6 +30,11 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
 
+// Inyecta sesion activa ANTES de que cargue el bundle, para saltar LoginScreen
+await page.evaluateOnNewDocument(() => {
+  localStorage.setItem('tucan_session_v1', JSON.stringify({ loggedIn: true, ts: Date.now() }));
+});
+
 for (const vp of VIEWPORTS) {
   await page.setViewport({ ...vp, deviceScaleFactor: 2 });
   await page.goto(BASE, { waitUntil: 'networkidle0' });

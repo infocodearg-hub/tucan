@@ -1390,6 +1390,20 @@
   }
 }
 
+/* ─── POS grid (Cantina): catálogo + ticket ───────────────────────────────── */
+.pos-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 68.75rem) {
+  /* ≥ 1100px — recién acá el sidebar (252px) + el panel fijo de 340px dejan
+     aire suficiente para el catálogo; por debajo el ticket va debajo, no al lado */
+  .pos-grid {
+    grid-template-columns: 1fr 340px;
+  }
+}
+
 @media (min-width: 48rem) {
   /* ≥ 768px — aparece el sidebar, desaparece la bottom-nav */
   .app-container {
