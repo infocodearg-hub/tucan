@@ -17,10 +17,7 @@ import {
   useAppState,
   useBookingActions,
   useBookingsForDate,
-  useClientActions,
   useClients,
-  useProductActions,
-  useProducts,
   useSaleActions,
   useSelectedDate,
   useToast,
@@ -28,11 +25,10 @@ import {
   useUIActions,
   selectors,
 } from './store';
-import { toLegacyBookings, toLegacyClient, toLegacyProduct } from './store/legacyAdapter';
+import { toLegacyBookings, toLegacyClient } from './store/legacyAdapter';
 import { normalizePhone } from './lib/phone';
-import { CATEGORIAS, guessIconKey } from './lib/catalog';
 import {
-  CalendarDays, ShoppingBag, BarChart3, Settings, Users, Repeat
+  CalendarDays, ShoppingBag, BarChart3, Users, Repeat
 } from 'lucide-react';
 
 // ─── Bottom nav items (mobile) ───
@@ -43,9 +39,6 @@ const BOTTOM_NAV = [
   { id: 'clientes',     label: 'Clientes',    icon: Users },
   { id: 'reportes',     label: 'Reportes',    icon: BarChart3 },
 ];
-
-const categoriaKeyFromLegacyLabel = (label) =>
-  Object.keys(CATEGORIAS).find((k) => CATEGORIAS[k] === label) ?? 'bebidas';
 
 export default function App() {
   // ─── Login gate ───
@@ -79,17 +72,15 @@ function AppInner({ onLogout }) {
   const toast = useToast();
 
   const bookingActions = useBookingActions();
-  const clientActions = useClientActions();
-  const productActions = useProductActions();
   const saleActions = useSaleActions();
   const turnoFijoActions = useTurnoFijoActions();
 
   const rawBookingsToday = useBookingsForDate(selectedDate);
   const rawClients = useClients();
-  const rawProducts = useProducts();
 
-  // ─── Capa de compatibilidad: estos 3 componentes todavía esperan la forma
-  // de datos vieja. Se elimina en la Fase 5 cuando se reescriben. Ver
+  // ─── Capa de compatibilidad: GrillaTurnos/NuevoTurnoModal/DetalleTurnoModal
+  // (bookings) y ClientesCRM (solo lectura — crear/editar/borrar ya va directo
+  // al store) todavía esperan la forma vieja. Se elimina en la Fase 5. Ver
   // src/store/legacyAdapter.js.
   const bookings = useMemo(() => toLegacyBookings(state, rawBookingsToday), [state, rawBookingsToday]);
   const clients = useMemo(
@@ -104,7 +95,6 @@ function AppInner({ onLogout }) {
       ),
     [state, rawClients]
   );
-  const products = useMemo(() => rawProducts.map(toLegacyProduct), [rawProducts]);
 
   const [isNuevoTurnoOpen, setIsNuevoTurnoOpen] = useState(false);
   const [modalSlot, setModalSlot] = useState({ canchaId: 'c1', time: '20:00' });
@@ -215,38 +205,6 @@ function AppInner({ onLogout }) {
     toast.success(`+ ${legacyProduct.name} agregado al turno`);
   };
 
-  const handleAddProduct = (legacyProduct) => {
-    const categoria = categoriaKeyFromLegacyLabel(legacyProduct.category);
-    const result = productActions.crear({
-      nombre: legacyProduct.name,
-      categoria,
-      precio: legacyProduct.price,
-      stock: legacyProduct.stock,
-      stockMinimo: 6,
-      controlaStock: categoria !== 'servicios',
-      iconKey: guessIconKey(legacyProduct.name, categoria),
-      activo: true,
-    });
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success(`Producto "${legacyProduct.name}" agregado a la cantina`);
-  };
-
-  const handleAddClient = (legacyClient) => {
-    const result = clientActions.crear({
-      nombre: legacyClient.name,
-      telefono: normalizePhone(legacyClient.phone),
-      historicoPrevio: { partidos: 0, cancelaciones: 0, gastado: 0 },
-    });
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success(`Cliente "${legacyClient.name}" registrado en el CRM`);
-  };
-
   return (
     <div style={{ minHeight: '100dvh' }}>
 
@@ -277,10 +235,7 @@ function AppInner({ onLogout }) {
           {activeTab === 'turnos_fijos' && <TurnosFijos />}
           {activeTab === 'cantina' && <CajaCantina />}
           {activeTab === 'clientes' && (
-            <ClientesCRM
-              clients={clients}
-              onAddClient={handleAddClient}
-            />
+            <ClientesCRM clients={clients} />
           )}
           {activeTab === 'reportes' && <ReportesAnalytics />}
           {activeTab === 'configuracion' && <ConfiguracionComplejo />}

@@ -15,12 +15,11 @@
 import React, { useState } from 'react';
 import {
   ShoppingBag, Plus, Minus, Trash2, CheckCircle2,
-  Search, Package, Store, UserCheck, PlusCircle,
+  Search, PlusCircle, Pencil,
 } from 'lucide-react';
 import {
   useProducts,
   useCajaDelDia,
-  useSales,
   useBookingsForDate,
   useSelectedDate,
   useSaleActions,
@@ -32,6 +31,7 @@ import { formatARS, formatARSCompact } from '../lib/format';
 import { timestampToTime } from '../lib/date';
 import VentaExitosaModal from './VentaExitosaModal';
 import NuevoProductoModal from './NuevoProductoModal';
+import { useConfirm } from './ConfirmDialog';
 
 const CATEGORY_LABELS = {
   todas: 'Todas',
@@ -51,11 +51,11 @@ export default function CajaCantina() {
   const products        = useProducts();
   const selectedDate    = useSelectedDate();
   const cajaHoy         = useCajaDelDia(selectedDate);
-  const allSales        = useSales();
   const bookingsHoy     = useBookingsForDate(selectedDate);
   const saleActions     = useSaleActions();
   const productActions  = useProductActions();
   const toast           = useToast();
+  const { confirm, ConfirmDialogMount } = useConfirm();
 
   const [selectedCategory, setSelectedCategory] = useState('todas');
   const [search,           setSearch]           = useState('');
@@ -64,7 +64,7 @@ export default function CajaCantina() {
   const [assignedBookingId,setAssignedBookingId]= useState('');
 
   const [completedSale,    setCompletedSale]    = useState(null);
-  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [productModal,     setProductModal]     = useState(null); // null cerrado | 'new' | Product a editar
 
   // ─── Filtrado de productos ───────────────────────────────────────────────
   const activeProducts = products.filter((p) => p.activo !== false);
@@ -155,29 +155,35 @@ export default function CajaCantina() {
     setAssignedBookingId('');
   };
 
-  // ─── Nuevo producto ───────────────────────────────────────────────────────
-  const handleAddProduct = (legacyProduct) => {
-    // NuevoProductoModal todavía habla el idioma viejo (Fase 5 lo reescribe)
-    const catMap = { Bebidas: 'bebidas', Tragos: 'tragos', Snacks: 'snacks', Servicios: 'servicios' };
-    const categoria = catMap[legacyProduct.category] ?? 'bebidas';
+  // ─── Alta / edición de producto ──────────────────────────────────────────
+  // productModal: 'new' (alta) o el Product completo (edición) — decide acá
+  // si el modal crea o actualiza para que el formulario no tenga que saberlo.
+  const handleSaveProduct = (data) => {
+    const isEdit = productModal && productModal !== 'new';
+    const result = isEdit
+      ? productActions.actualizar(productModal.id, data)
+      : productActions.crear(data);
 
-    const result = productActions.crear({
-      nombre:        legacyProduct.name,
-      categoria,
-      precio:        legacyProduct.price,
-      stock:         legacyProduct.stock,
-      stockMinimo:   6,
-      controlaStock: categoria !== 'servicios',
-      iconKey:       legacyProduct.iconKey ?? 'otro',
-      activo:        true,
+    if (!result.ok) return result;
+    toast.success(isEdit ? `"${data.nombre}" actualizado` : `Producto "${data.nombre}" agregado`);
+    setProductModal(null);
+    return result;
+  };
+
+  const handleDeleteProduct = async (product) => {
+    const ok = await confirm({
+      title: 'Eliminar producto',
+      message: `"${product.nombre}" se saca del catálogo. Podés deshacerlo desde el aviso.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
     });
+    if (!ok) return;
 
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success(`Producto "${legacyProduct.name}" agregado`);
-    setIsAddProductOpen(false);
+    productActions.eliminar(product.id);
+    setProductModal(null);
+    toast.info(`"${product.nombre}" eliminado`, {
+      action: { label: 'Deshacer', onClick: () => productActions.restaurar(product) },
+    });
   };
 
   // ─── Historial de ventas del día ─────────────────────────────────────────
@@ -206,7 +212,7 @@ export default function CajaCantina() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button
-            onClick={() => setIsAddProductOpen(true)}
+            onClick={() => setProductModal('new')}
             className="btn-secondary"
             style={{ padding: '8px 14px', fontSize: '0.82rem', gap: 6 }}
           >
@@ -305,13 +311,27 @@ export default function CajaCantina() {
                   }}
                 >
                   <div>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 10,
-                      background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.25)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      marginBottom: 8,
-                    }}>
-                      <ProdIcon size={18} color="var(--green)" />
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.25)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <ProdIcon size={18} color="var(--green)" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setProductModal(prod); }}
+                        aria-label={`Editar ${prod.nombre}`}
+                        style={{
+                          width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'transparent', border: '1px solid var(--border-dim)',
+                          color: 'var(--text-muted)', cursor: 'pointer',
+                        }}
+                      >
+                        <Pencil size={11} />
+                      </button>
                     </div>
                     <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)', marginBottom: 3, lineHeight: 1.2 }}>
                       {prod.nombre}
@@ -536,11 +556,17 @@ export default function CajaCantina() {
         onClose={() => setCompletedSale(null)}
       />
 
-      <NuevoProductoModal
-        isOpen={isAddProductOpen}
-        onClose={() => setIsAddProductOpen(false)}
-        onAddProduct={handleAddProduct}
-      />
+      {productModal && (
+        <NuevoProductoModal
+          key={productModal === 'new' ? 'new' : productModal.id}
+          isOpen
+          onClose={() => setProductModal(null)}
+          producto={productModal === 'new' ? null : productModal}
+          onSave={handleSaveProduct}
+          onDelete={handleDeleteProduct}
+        />
+      )}
+      {ConfirmDialogMount}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Users, Search, Phone, MessageSquare, TrendingUp, Star, AlertTriangle, CheckCircle2, ChevronRight, Award, ShieldCheck, Crown, UserPlus } from 'lucide-react';
+import { Search, MessageSquare, AlertTriangle, Award, ShieldCheck, Crown, UserPlus, Pencil, Trash2 } from 'lucide-react';
 import NuevoClienteModal from './NuevoClienteModal';
+import { useConfirm } from './ConfirmDialog';
+import { useClientActions, useToast } from '../store';
 
 const SCORE_COLOR = (score) => {
   const n = parseFloat(score);
@@ -27,14 +29,46 @@ const getBadgeComponent = (badge) => ({
   ...(BADGE_META[badge?.key] ?? BADGE_META.nuevo),
 });
 
-export default function ClientesCRM({ clients, onAddClient }) {
+export default function ClientesCRM({ clients }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
-  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+  const [clientModal, setClientModal] = useState(null); // null cerrado | 'new' | Client a editar
+
+  const clientActions = useClientActions();
+  const toast = useToast();
+  const { confirm, ConfirmDialogMount } = useConfirm();
 
   const filtered = clients.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search)
   );
+
+  const handleSaveClient = (data) => {
+    const isEdit = clientModal && clientModal !== 'new';
+    const result = isEdit
+      ? clientActions.actualizar(clientModal.id, data)
+      : clientActions.crear(data);
+
+    if (!result.ok) return result;
+    toast.success(isEdit ? `"${data.nombre}" actualizado` : `Cliente "${data.nombre}" registrado en el CRM`);
+    setClientModal(null);
+    return result;
+  };
+
+  const handleDeleteClient = async (client) => {
+    const ok = await confirm({
+      title: 'Eliminar cliente',
+      message: `"${client.nombre}" se borra del CRM. Sus turnos pasados quedan intactos. Podés deshacerlo desde el aviso.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
+
+    clientActions.eliminar(client.id);
+    setClientModal(null);
+    toast.info(`"${client.nombre}" eliminado`, {
+      action: { label: 'Deshacer', onClick: () => clientActions.restaurar(client) },
+    });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -58,7 +92,7 @@ export default function ClientesCRM({ clients, onAddClient }) {
             />
           </div>
           <button
-            onClick={() => setIsAddClientOpen(true)}
+            onClick={() => setClientModal('new')}
             className="btn-primary"
             style={{ padding: '8px 14px', fontSize: '0.82rem', gap: 6 }}
           >
@@ -166,9 +200,26 @@ export default function ClientesCRM({ clients, onAddClient }) {
                   <BadgeIcon size={12} color={badgeMeta.color} />
                   <span>{badgeMeta.text}</span>
                 </div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  {client.lastMatch}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setClientModal(client._source); }}
+                    aria-label={`Editar ${client.name}`}
+                    className="btn-icon"
+                    style={{ width: 26, height: 26 }}
+                  >
+                    <Pencil size={11} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteClient(client._source); }}
+                    aria-label={`Eliminar ${client.name}`}
+                    className="btn-icon"
+                    style={{ width: 26, height: 26, color: 'var(--red)' }}
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
                 <a
                   href={`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}`}
                   target="_blank"
@@ -196,12 +247,17 @@ export default function ClientesCRM({ clients, onAddClient }) {
         </div>
       )}
 
-      {/* Modal para crear cliente */}
-      <NuevoClienteModal
-        isOpen={isAddClientOpen}
-        onClose={() => setIsAddClientOpen(false)}
-        onAddClient={onAddClient}
-      />
+      {clientModal && (
+        <NuevoClienteModal
+          key={clientModal === 'new' ? 'new' : clientModal.id}
+          isOpen
+          onClose={() => setClientModal(null)}
+          cliente={clientModal === 'new' ? null : clientModal}
+          onSave={handleSaveClient}
+          onDelete={handleDeleteClient}
+        />
+      )}
+      {ConfirmDialogMount}
     </div>
   );
 }
