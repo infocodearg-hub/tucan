@@ -4,7 +4,7 @@
  */
 import jsPDF from 'jspdf';
 import { formatARS } from './format';
-import { formatLongDate, todayISO, nowTime } from './date';
+import { formatLongDate, formatMediumDate, todayISO, nowTime } from './date';
 
 const MARGIN = 40;
 const PAGE_W = 595.28; // A4 en puntos (jsPDF default unit)
@@ -117,4 +117,128 @@ export function exportCierreCajaPDF({ complejo, fecha, cierreCaja, pagosDelDia, 
   doc.text(`Generado con TuCan · ${formatLongDate(todayISO())} ${nowTime()}hs`, MARGIN, 820);
 
   doc.save(`cierre-caja_${fecha}.pdf`);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Ticket de venta — rollo de 80mm
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Antes esto era `window.print()` sobre un portal oculto con `@media print`.
+   En Chrome de Android eso sale en blanco: el "Guardar como PDF" del sistema
+   arma su propia instantánea de la página y el nodo que sólo existe en el
+   media `print` no siempre entra. Armar el PDF a mano con jsPDF da el mismo
+   archivo en celular y en escritorio, y encima es lo que el usuario quiere:
+   un ticket descargable que después imprime en la térmica.
+
+   El alto del papel es dinámico (un rollo no tiene "hoja"): el ticket crece
+   con el pedido en vez de saltar a una segunda página. */
+
+const TICKET_W = 80;   // mm — rollo estándar de impresora de tickets
+const TICKET_PAD = 6;
+
+function dashed(doc, y) {
+  doc.setDrawColor(150);
+  doc.setLineWidth(0.2);
+  doc.setLineDashPattern([0.7, 0.7], 0);
+  doc.line(TICKET_PAD, y, TICKET_W - TICKET_PAD, y);
+  doc.setLineDashPattern([], 0);
+}
+
+/** Recorta con "…" para que el nombre nunca pise la columna del precio. */
+function fit(doc, text, maxW) {
+  if (doc.getTextWidth(text) <= maxW) return text;
+  let cortado = text;
+  while (cortado.length > 1 && doc.getTextWidth(`${cortado}…`) > maxW) {
+    cortado = cortado.slice(0, -1);
+  }
+  return `${cortado}…`;
+}
+
+export function exportTicketPDF(sale) {
+  const items = sale.items ?? [];
+  const alto = 56 + items.length * 4.2;
+
+  // jsPDF normaliza el formato según la orientación: en 'portrait' (el default)
+  // obliga a que el alto sea el lado mayor y DA VUELTA las medidas si no lo es.
+  // Un ticket corto (pocos ítems) mide menos de alto que de ancho, así que
+  // salía girado a 68mm de ancho y los precios, alineados a 74mm, quedaban
+  // cortados fuera de la hoja. Eligiendo la orientación según las medidas
+  // reales, el papel queda siempre de 80mm de ancho.
+  const doc = new jsPDF({
+    unit: 'mm',
+    format: [TICKET_W, alto],
+    orientation: alto >= TICKET_W ? 'portrait' : 'landscape',
+  });
+  const left = TICKET_PAD;
+  const right = TICKET_W - TICKET_PAD;
+  const center = TICKET_W / 2;
+  const contentW = right - left;
+  let y = 9;
+
+  // ── Encabezado ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(17);
+  doc.text(fit(doc, sale.complejoNombre || 'Comprobante de Venta', contentW), center, y, { align: 'center' });
+  y += 5;
+
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(90);
+  doc.text(`${formatMediumDate(sale.fecha)} · ${sale.time}`, center, y, { align: 'center' });
+  y += 4;
+
+  doc.setFont('courier', 'bold');
+  doc.setTextColor(17);
+  doc.text(fit(doc, sale.target ?? 'Mostrador', contentW), center, y, { align: 'center' });
+  y += 3.5;
+
+  dashed(doc, y);
+  y += 5;
+
+  // ── Ítems ──
+  doc.setFontSize(8);
+  for (const item of items) {
+    const precio = formatARS(item.precioUnit * item.cantidad);
+    doc.setFont('courier', 'normal');
+    const anchoPrecio = doc.getTextWidth(precio);
+
+    doc.setTextColor(17);
+    doc.text(fit(doc, `${item.cantidad} x ${item.nombre}`, contentW - anchoPrecio - 2), left, y);
+    doc.setTextColor(80);
+    doc.text(precio, right, y, { align: 'right' });
+    y += 4.2;
+  }
+
+  y -= 0.7;
+  dashed(doc, y);
+  y += 5;
+
+  // ── Medio de cobro ──
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(90);
+  doc.text('Medio de Cobro', left, y);
+  doc.setFont('courier', 'bold');
+  doc.setTextColor(17);
+  doc.text(sale.method ?? '—', right, y, { align: 'right' });
+  y += 3.5;
+
+  dashed(doc, y);
+  y += 6;
+
+  // ── Total ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(17);
+  doc.text('Total', left, y);
+  doc.text(formatARS(sale.total), right, y, { align: 'right' });
+  y += 6;
+
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(150);
+  doc.text('¡Gracias por su compra!', center, y, { align: 'center' });
+
+  doc.save(`ticket_${sale.id}.pdf`);
 }

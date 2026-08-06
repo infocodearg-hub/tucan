@@ -96,7 +96,7 @@ export default function ClientesCRM({ clients }) {
             className="btn-primary"
             style={{ padding: '8px 14px', fontSize: '0.82rem', gap: 6 }}
           >
-            <UserPlus size={15} style={{ color: 'var(--on-accent)' }} /> + Nuevo Cliente
+            <UserPlus size={15} style={{ color: 'var(--on-accent)' }} />  Nuevo Cliente
           </button>
         </div>
       </div>

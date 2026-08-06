@@ -6,18 +6,28 @@ CRUD total (clientes, productos, turnos fijos, turnos) + ronda "multigestión"
 componentes migrados fuera de `mockData.js`) + ronda de pulido visual
 profesional (calendario propio, cero emojis en la UI, Cierre de Caja con
 desglose real, Configuración en sub-secciones, mobile 100% sin overflow) +
-ronda "modales/QR/export/prep Supabase" (ver sección homónima al final:
-bug de `position:fixed` roto en TODOS los modales arreglado de raíz, Vista
-Pública movida a `/reserva` con QR real, Export PDF funcional en Cierre de
-Caja, scaffolding de Supabase sin wirear).**
+ronda "modales/QR/export/prep Supabase" (bug de `position:fixed` roto en
+TODOS los modales arreglado de raíz, Vista Pública movida a `/reserva` con
+QR real, Export PDF funcional en Cierre de Caja, scaffolding de Supabase sin
+wirear) + ronda "Cantina mobile + deploy" (historial reordenado en mobile,
+íconos rotos en Reportes, ticket itemizado, `vercel.json`, demo poblada,
+manual de usuario) + **ronda "zoom Cantina + ticket PDF" (ver sección
+homónima al final: bug de zoom por doble-tap en Cantina, ticket pasó de
+`window.print()` a PDF real con jsPDF, bug de orientación de página en ese
+PDF, enlaces reales para "Vista Pública Web" y "Centro de Ayuda" en el menú
+de perfil).**
+Deploy YA conectado: Vercel sirve el repo (`https://github.com/infocodearg-hub/tucan`)
+en auto-deploy desde `master` — dominio visto en la última sesión con URL
+tipo `*-lovat.vercel.app` (nombre autogenerado por Vercel, puede cambiar).
 Build limpio, 70/70 tests verdes, verificado con Puppeteer real de punta a
 punta (crear/editar/borrar/deshacer en el navegador, no solo que compile).
-**Hay cambios sin commitear** — ver `git status`, el trabajo de estas
-rondas todavía no tiene commit (se hizo en sesiones que no
-tenían autorización para commitear sin que se pida explícitamente).
 
 ```bash
 git log --oneline
+# <HEAD> fix: zoom por doble-tap en Cantina + ticket PDF real + enlaces del menu
+# 2fcc740 fix: ticket imprimible sin paginas fantasma + cantina mobile mas densa
+# 697e087 feat: gastos/cierre de caja, gestion de canchas, pulido visual, deploy prep
+# 6bf3e14 docs: actualizar HANDOFF con el estado real tras CRUD completo
 # 494bae5 feat: editar turno desde el detalle + modal en vivo
 # e130c67 feat: editar turnos fijos + confirmacion y deshacer al borrar
 # 3c59da0 feat: editar y borrar productos y clientes (CRUD completo)
@@ -29,8 +39,6 @@ git log --oneline
 # 7f9cdca feat(fase-0.5): nuevo sistema de diseno Deep Pitch
 # 7003bae chore(fase-0): limpieza, tooling y capa de utilidades
 # de537b8 chore: snapshot inicial antes del pulido
-# ↑ los cambios de gastos/caja/canchas/mockData-fix de esta ronda están
-#   encima de esto, sin commitear todavía
 
 npm install
 npm run dev              # http://localhost:5173  (login demo: admin / tucan)
@@ -417,6 +425,19 @@ src/components/
   DateNav.jsx                 navegación de fecha + calendario propio
                                (CalendarPopover interno) — ya no usa
                                showPicker() nativo
+  VentaExitosaModal.jsx       ✅ ticket se descarga como PDF (exportTicketPDF),
+                               ya NO usa window.print()/@media print — ver
+                               ronda "zoom Cantina + ticket PDF" más abajo
+  Navbar.jsx                  "Vista Pública Web" → <a href="/reserva"
+                               target="_blank">, "Centro de Ayuda" → <a> al
+                               manual publicado (MANUAL_URL, hardcodeada
+                               arriba del componente) — antes ninguno de los
+                               dos hacía nada
+
+src/lib/pdfExport.js          exportCierreCajaPDF() (ya existía) +
+                               exportTicketPDF() nueva — rollo térmico 80mm,
+                               alto dinámico, orientación resuelta a mano
+                               (ver regla #12)
 
 tools/
   shot.mjs                    capturas Chrome headless + chequeo overflow
@@ -451,6 +472,23 @@ tools/
     Supabase" más abajo). Cualquier `transform` residual en un ancestro,
     aunque sea `translateY(0)`, cambia el containing block de sus hijos
     `fixed` de "viewport" a "ese ancestro".
+12. **jsPDF con más de una dimensión variable: fijar `orientation` a mano.**
+    Con `format:[w,h]` y sin `orientation` explícito, jsPDF asume 'portrait'
+    y **da vuelta el papel** si `h < w` — un ticket corto (pocos ítems) queda
+    angosto en vez de bajito, y todo lo alineado a la derecha se corta fuera
+    de la hoja. Pasó en `exportTicketPDF` (`pdfExport.js`): se ve bien con
+    contenido largo (por casualidad ya sale "portrait") y roto con poco
+    contenido. Fix: `orientation: alto >= ancho ? 'portrait' : 'landscape'`.
+13. **`touch-action: manipulation` en `html` no es opcional en una app con
+    tarjetas cliqueables repetidas** (Cantina: tocás el mismo producto
+    varias veces para sumar unidades). Sin eso, Chrome Android lee el
+    segundo tap como doble-tap → zoom de página real (no cosmético): todo
+    se ve "gigante como en PC", y como el zoom cambia el layout viewport,
+    los modales `position:fixed` se posicionan mal encima. No confundir con
+    el bug de la regla #11 (ese es un `transform` que rompe el *containing
+    block*; este es el navegador zoomeando la página entera — el nav sigue
+    presente en el video/captura, solo que gigante, esa es la señal para
+    distinguirlos).
 
 ## Cómo verificar que algo no se rompió
 
@@ -547,5 +585,111 @@ sigue 100% sobre localStorage). Se agregó:
   `store/hydrate` pensada para carga async — falta que `StoreProvider` llame
   `repo.load()` y muestre un loading state mientras resuelve, el README de
   `repository/` ya lo documenta como seam pendiente.
+
+---
+
+## Ronda "Cantina mobile + deploy" (previa a esta)
+
+Usuario ya tenía el repo en GitHub (`infocodearg-hub/tucan`) y pidió dejarlo
+listo para Vercel + mandarlo a sus socios. Además reportó 4 bugs puntuales
+con capturas.
+
+- **Historial de ventas tapaba el ticket en mobile** — `.pos-grid` pasó a
+  `grid-template-areas` explícito (`"catalog" "ticket" "historial"` en
+  mobile, reordenado a 2 columnas desde 1100px) para que el orden visual no
+  dependa del orden del DOM. Los 3 hijos de `.pos-grid` llevan
+  `pos-grid-catalog`/`pos-grid-ticket`/`pos-grid-historial`.
+- **Íconos rotos en Reportes → Gastos** — la fila de cada gasto pasó de una
+  línea a dos (concepto arriba, fecha+categoría+acciones abajo) para que los
+  botones de editar/borrar no compitieran por espacio con el badge de fecha.
+- **Label desalineado en Nuevo Turno** — `"Nombre del Cliente / Equipo *"`
+  se envolvía a 2 líneas y desalineaba el input contra "Teléfono WhatsApp".
+  Acortado a `"Cliente / Equipo *"`.
+- **Ticket itemizado** — primera versión del ticket de venta, con ítem por
+  línea, precio unitario, nombre del complejo. Esta versión imprimía con
+  `window.print()` + portal + `@media print` — **reemplazada por completo**
+  en la ronda siguiente (ver abajo) porque salía en blanco en Chrome Android.
+- **Deploy**: `vercel.json` con rewrite SPA (`/reserva` necesita esto, sin
+  rewrite Vercel devuelve 404 en cualquier ruta que no sea `/`), sección
+  "Deploy" en `README.md`, remote de GitHub conectado y pusheado.
+- **Demo poblada**: `mockData.js`/`seed.js` con más turnos/clientes/gastos,
+  todos con `dayOffset` relativo a "hoy" (nunca fechas literales) para que
+  la demo no se vea vacía en ningún día que se abra. De paso se corrigió un
+  bug real en `schema.js` (`createInitialState()` hacía `...seed, expenses:
+  []`, pisando el `expenses` sembrado — cambiado a `expenses: seed.expenses
+  ?? []`).
+- **Manual de usuario**: Artifact HTML publicado, link en la sección de
+  abajo (es el mismo que ahora enlaza "Centro de Ayuda" en el navbar).
+
+---
+
+## Ronda "zoom Cantina + ticket PDF" (la más reciente)
+
+Usuario mandó un **video con audio** mostrando el bug desde el celular real
+("entro a Cantina y se ve como si fuera desktop, gigante"). Sin herramienta
+de transcripción de audio disponible, se extrajeron frames con `ffmpeg`
+(`fps=1.5`) y se leyeron como imágenes — el video mostró el bottom-nav de la
+app *presente pero gigante* y la página paneable horizontalmente, lo cual
+descarta un bug de CSS/breakpoint (ahí el nav directamente desaparecería o
+el layout cambiaría de estructura) y apunta a zoom real de página.
+
+**Bug 1 — zoom por doble-tap en Cantina.** Causa: en Cantina se toca la
+misma tarjeta de producto varias veces seguidas para sumar unidades al
+carrito — es la única pantalla de la app con ese patrón de tap repetido en
+el mismo punto. Chrome Android interpreta el segundo tap rápido como
+doble-tap y zoomea la página (nada de esto es cosmético: es el navegador
+cambiando el layout viewport de verdad, por eso después "cuando le doy a
+confirmar venta se abre super mal el modal" — el modal `position:fixed` se
+posiciona mal porque el viewport visual ya no coincide con el layout
+viewport). Fix de una línea: `touch-action: manipulation` en `html`
+(`index.css`) — mata el doble-tap-zoom, el pinch manual con dos dedos sigue
+andando (no se usó `user-scalable=no`, eso rompe accesibilidad). Ver regla
+#13. De paso, `.pos-grid-historial` era el único hijo de `.pos-grid` sin
+`min-width:0` (regla #8) — corregido aunque no era la causa de este bug en
+particular.
+
+Diagnóstico verificado con Puppeteer real (`isMobile:true, hasTouch:true`,
+Android UA) en 320/360/375/390/412px sobre el build de producción: sin el
+fix, cero overflow de documento a ningún ancho — confirmando que el bug
+nunca fue overflow de CSS, sino zoom de navegador. Con el fix, se repitió
+el mismo test y quedó igual de limpio.
+
+**Bug 2 — ticket salía en blanco al "imprimir".** Causa: `window.print()`
+sobre un portal oculto con `@media print` funciona en Chrome de escritorio
+pero no en el "Guardar como PDF" de Android — ese flujo arma su propia
+instantánea de la página y el nodo que solo existía en el media `print` no
+siempre entraba, dando una hoja vacía (a veces duplicada, según cómo
+paginaba). Fix: se dejó de depender del print del navegador — nuevo
+`exportTicketPDF(sale)` en `pdfExport.js` arma el PDF a mano con jsPDF
+(misma librería que ya usaba `exportCierreCajaPDF`), rollo térmico de 80mm
+de ancho con alto dinámico (el pedido crece el papel, no salta de página).
+`VentaExitosaModal.jsx` perdió el portal de impresión y el `@media print`
+de `index.css` — ya no existen, todo el archivo quedó ~50 líneas más corto.
+Botón pasó de "Imprimir Ticket" a "Descargar Ticket".
+
+**Bug 3 — ticket con pocos ítems salía cortado** (encontrado por el usuario
+después del fix del Bug 2, con una venta de 3 ítems real). Causa: ver regla
+#12 — jsPDF con `format:[80, alto]` y sin `orientation` explícito asume
+'portrait' y da vuelta el papel cuando `alto < 80`, angostándolo a
+~68mm mientras el texto seguía alineado a 74mm. Fix: `orientation: alto >=
+80 ? 'portrait' : 'landscape'`. Verificado con 1/3/6 ítems (cruza el punto
+exacto donde el alto pasa de menor a mayor que 80mm): las tres hojas salen
+de 80mm de ancho, 1 sola página cada una.
+
+**Enlaces muertos en el menú de perfil** — "Vista Pública Web" llamaba
+`navSetTab('vista_publica')`, un tab que quedó comentado desde que esa vista
+se mudó a `/reserva` (ronda "modales/QR"); no hacía nada. "Centro de Ayuda"
+no tenía ni `onClick`. Los dos pasaron a ser `<a target="_blank"
+rel="noopener noreferrer">`: el primero a `/reserva` (misma URL que el QR de
+Configuración), el segundo a `MANUAL_URL` (constante arriba de
+`Navbar.jsx`) — el manual de usuario Artifact ya publicado en la ronda
+anterior. Se sumó `text-decoration:none` a `.dropdown-item` en `index.css`
+para que el `<a>` no saliera subrayado entre los `<button>` del mismo menú.
+
+**Metodología a repetir**: cuando un bug mobile no reproduce con overflow de
+CSS ni con las herramientas de siempre, medir con Puppeteer en vez de leer
+código a ciegas — mismo criterio que la regla #11. Y cuando el usuario manda
+video, extraer frames con `ffmpeg` en vez de intentar leer el binario
+directo (el tool de lectura de archivos no soporta `.mp4`).
 
 Dependencias nuevas: `qrcode`, `jspdf` (ambas 100% client-side, sin backend).

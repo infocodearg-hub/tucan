@@ -19,6 +19,9 @@ import {
 import { useConfig, useCanchasActivas, useUIActions } from '../store';
 import { nowTimeWithSeconds } from '../lib/date';
 
+/** Manual de uso publicado — es lo que se le manda al cliente junto al link. */
+const MANUAL_URL = 'https://claude.ai/code/artifact/ea2c6de4-747d-4b2e-a78c-0c0275f626ea';
+
 export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, setActiveTab, onLogout }) {
   const config      = useConfig();
   const canchas     = useCanchasActivas();
@@ -151,7 +154,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
         <button id="btn-nuevo-turno" onClick={onOpenNuevoTurno} className="btn-primary" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
           <PlusCircle size={15} style={{ color: 'var(--on-accent)' }} />
           <span className="hidden sm:inline">Nuevo Turno</span>
-          <span className="sm:hidden">+ Turno</span>
+          <span className="sm:hidden"> Turno</span>
         </button>
 
         {/* Cobrar Cantina — desktop */}
@@ -241,14 +244,28 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
                 <BarChart3 size={15} color="var(--text-muted)" />
                 Reportes & Finanzas
               </button>
-              <button className="dropdown-item" onClick={() => { navSetTab('vista_publica'); setProfileOpen(false); }}>
+              {/* Página aparte, no una pestaña del panel: es lo que ve el
+                  jugador, la misma URL que apunta el QR de Configuración. */}
+              <a
+                className="dropdown-item"
+                href="/reserva"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setProfileOpen(false)}
+              >
                 <Globe size={15} color="var(--text-muted)" />
                 Vista Pública Web
-              </button>
-              <button className="dropdown-item">
+              </a>
+              <a
+                className="dropdown-item"
+                href={MANUAL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setProfileOpen(false)}
+              >
                 <HelpCircle size={15} color="var(--text-muted)" />
                 Centro de Ayuda
-              </button>
+              </a>
 
               <div className="dropdown-divider" />
 

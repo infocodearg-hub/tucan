@@ -179,6 +179,12 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    /* En Cantina se tocan las mismas tarjetas varias veces seguidas para sumar
+       unidades, y Chrome Android lo lee como doble tap = zoom: la página queda
+       ampliada ~2x ("como vista de escritorio") y los modales fixed se van de
+       pantalla. `manipulation` mata solo el doble tap; el pinch para zoom
+       manual sigue disponible. */
+    touch-action: manipulation;
   }
 
   body {
@@ -1309,6 +1315,9 @@
     font-weight: 500;
     color: var(--color-text-secondary);
     text-align: left;
+    /* "Centro de Ayuda" es un <a> al manual publicado, el resto son <button>:
+       sin esto el link sale subrayado y desentona con los demás ítems */
+    text-decoration: none;
     transition:
       background 0.14s var(--ease-out-quint),
       color 0.14s var(--ease-out-quint);
@@ -1436,18 +1445,6 @@
   }
 }
 
-/* ─── Ticket imprimible (VentaExitosaModal) ─────────────────────────────────
-   #print-ticket-root es un nodo hermano de #root (portal, ver VentaExitosaModal.jsx),
-   invisible en pantalla. Al imprimir se oculta #root entero (display:none —
-   cero alto, no genera páginas de más) y se muestra solo el ticket, que
-   pagina solo si el pedido es realmente largo. */
-#print-ticket-root { display: none; }
-@media print {
-  #root { display: none !important; }
-  #print-ticket-root { display: block !important; }
-  @page { margin: 8mm; }
-}
-
 /* ─── POS grid (Cantina): catálogo + ticket + historial ───────────────────── */
 .pos-grid {
   display: grid;
@@ -1457,7 +1454,7 @@
 }
 .pos-grid-catalog { grid-area: catalog; }
 .pos-grid-ticket { grid-area: ticket; }
-.pos-grid-historial { grid-area: historial; }
+.pos-grid-historial { grid-area: historial; min-width: 0; }
 
 @media (min-width: 68.75rem) {
   /* ≥ 1100px — recién acá el sidebar (252px) + el panel fijo de 340px dejan

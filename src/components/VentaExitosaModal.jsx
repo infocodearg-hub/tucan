@@ -1,36 +1,19 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
-import { CheckCircle2, Printer, ArrowRight } from 'lucide-react';
+import { Download, CheckCircle2, ArrowRight } from 'lucide-react';
 import { formatARS } from '../lib/format';
 import { formatLongDate } from '../lib/date';
+import { exportTicketPDF } from '../lib/pdfExport';
 
-/**
- * Imprimir "solo este elemento" con `visibility:hidden` en el resto del body
- * no funciona bien: los elementos ocultos siguen ocupando su alto en el
- * documento, así que el navegador paginaba de más — a veces una hoja en
- * blanco, a veces el ticket repetido. Portal a un nodo hermano de #root,
- * fuera del árbol de la app: #root se oculta entero con display:none al
- * imprimir (cero alto, cero páginas de más) y solo el ticket queda en el
- * flujo — pagina solo si el pedido es realmente largo.
- */
-function getPrintRoot() {
-  let el = document.getElementById('print-ticket-root');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'print-ticket-root';
-    document.body.appendChild(el);
-  }
-  return el;
-}
-
-function TicketBody({ sale, printSafe = false }) {
-  const ink = printSafe ? '#111' : 'var(--text-primary)';
-  const muted = printSafe ? '#555' : 'var(--text-muted)';
-  const accent = printSafe ? '#111' : 'var(--green)';
-  const border = printSafe ? '#999' : 'var(--border-mid)';
+/** Vista en pantalla del ticket. El PDF descargable se arma aparte, con
+ *  jsPDF en lib/pdfExport.js — ver el comentario de exportTicketPDF. */
+function TicketBody({ sale }) {
+  const ink = 'var(--text-primary)';
+  const muted = 'var(--text-muted)';
+  const accent = 'var(--green)';
+  const border = 'var(--border-mid)';
 
   return (
-    <div style={{ fontFamily: printSafe ? "'Geist Mono', ui-monospace, Consolas, monospace" : 'inherit' }}>
+    <div>
       <div style={{ textAlign: 'center', marginBottom: 10, paddingBottom: 8, borderBottom: `1px dashed ${border}` }}>
         <p className="font-heading" style={{ fontSize: '0.95rem', fontWeight: 900, color: ink, margin: 0 }}>
           {sale.complejoNombre || 'Comprobante de Venta'}
@@ -60,7 +43,7 @@ function TicketBody({ sale, printSafe = false }) {
         <span style={{ fontSize: '0.76rem', color: muted }}>Medio de Cobro</span>
         <strong style={{ fontSize: '0.76rem', color: ink }}>{sale.method}</strong>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, borderTop: printSafe ? `1px dashed ${border}` : 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 }}>
         <span className="font-heading" style={{ fontSize: '0.88rem', fontWeight: 800, color: ink }}>Total</span>
         <span className="font-heading num" style={{ fontSize: '1.15rem', fontWeight: 900, color: accent }}>
           {formatARS(sale.total)}
@@ -74,8 +57,7 @@ export default function VentaExitosaModal({ sale, onClose }) {
   if (!sale) return null;
 
   return (
-    <>
-      <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
         <div className="modal-content" style={{ maxWidth: 400, textAlign: 'center', padding: '24px 22px' }}>
 
           {/* Checkmark decorativo — no forma parte del ticket */}
@@ -106,11 +88,11 @@ export default function VentaExitosaModal({ sale, onClose }) {
           <div style={{ display: 'flex', gap: 10 }}>
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => exportTicketPDF(sale)}
               className="btn-secondary"
               style={{ flex: 1, padding: '10px', fontSize: '0.82rem', justifyContent: 'center', gap: 6 }}
             >
-              <Printer size={14} color="var(--green)" /> Imprimir Ticket
+              <Download size={14} color="var(--green)" /> Descargar Ticket
             </button>
             <button
               type="button"
@@ -123,15 +105,6 @@ export default function VentaExitosaModal({ sale, onClose }) {
           </div>
 
         </div>
-      </div>
-
-      {/* Copia solo para impresión — ver #print-ticket-root en index.css */}
-      {createPortal(
-        <div style={{ padding: '10mm', maxWidth: '80mm', margin: '0 auto', background: '#fff' }}>
-          <TicketBody sale={sale} printSafe />
-        </div>,
-        getPrintRoot()
-      )}
-    </>
+    </div>
   );
 }

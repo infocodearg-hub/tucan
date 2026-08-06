@@ -223,7 +223,7 @@ export default function CajaCantina() {
             className="btn-secondary"
             style={{ padding: '8px 14px', fontSize: '0.82rem', gap: 6 }}
           >
-            <PlusCircle size={15} color="var(--green)" /> + Nuevo Producto
+            <PlusCircle size={15} color="var(--green)" />  Nuevo Producto
           </button>
 
           <div style={{
