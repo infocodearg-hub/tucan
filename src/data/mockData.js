@@ -1,4 +1,4 @@
-// Mock Data for TuCan App
+// Mock Data for Set&gol App
 
 export const COMPLEX_INFO = {
   id: 'cmp_maracana',
@@ -14,7 +14,6 @@ export const COMPLEX_INFO = {
   señaMinimaPorcentaje: 50,
   cbu: '0000003100084920491823',
   alias: 'MARACANA.FUTBOL.MP',
-  mercadopagoConnected: true,
   whatsappBotActive: true
 };
 

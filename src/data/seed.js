@@ -48,16 +48,6 @@ const METODO_DESDE_TEXTO = (texto = '') => {
   return 'efectivo';
 };
 
-const DIA_DESDE_NOMBRE = {
-  Lunes: 1,
-  Martes: 2,
-  Miércoles: 3,
-  Jueves: 4,
-  Viernes: 5,
-  Sábado: 6,
-  Domingo: 7,
-};
-
 /** 'Cancha 1 (Fútbol 5)' o 'Cancha 2 - Sintético B' → el id de esa cancha. */
 function resolverCanchaId(texto, canchas) {
   const m = String(texto).match(/Cancha\s+(\d+)/i);
@@ -305,7 +295,6 @@ function normalizarConfig() {
     pagos: {
       alias: COMPLEX_INFO.alias,
       cbu: COMPLEX_INFO.cbu,
-      mercadopagoConectado: COMPLEX_INFO.mercadopagoConnected ?? false,
       senaMinimaPorcentaje: COMPLEX_INFO.señaMinimaPorcentaje ?? 50,
     },
     operacion: {
@@ -319,13 +308,6 @@ function normalizarConfig() {
       alertasSinSena: true,
       recordatorioAutomatico: false,
       ocrComprobantes: true,
-    },
-    // Acceso local de demostración. NO es seguridad: no hay backend que validar.
-    // Al migrar a Supabase esto se reemplaza por Supabase Auth.
-    acceso: {
-      usuario: 'admin',
-      password: 'tucan',
-      nombreMostrado: 'Encargado Maracaná',
     },
   };
 }

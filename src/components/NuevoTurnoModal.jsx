@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   X, Check, Calendar, Clock, User, Phone, Plus, ShoppingBag,
-  Minus, Zap, CreditCard, Building, Wallet, Sun, Moon,
+  Minus, Zap, Building, Wallet, Sun, Moon,
 } from 'lucide-react';
 import { useCanchasActivas, useConfig, useProducts } from '../store';
 import { precioSlot, isNightSlot } from '../lib/pricing';
@@ -10,9 +10,8 @@ import { iconForProduct } from '../lib/catalog';
 import CustomSelect from './CustomSelect';
 
 const PAYMENT_METHODS = [
-  { value: 'Mercado Pago (Link QR Bot)', label: 'Mercado Pago (QR Bot)', icon: CreditCard },
-  { value: 'Transferencia Bancaria',     label: 'Transferencia CBU',      icon: Building },
-  { value: 'Efectivo Mostrador',         label: 'Efectivo Mostrador',      icon: Wallet },
+  { value: 'Transferencia Bancaria', label: 'Transferencia CBU',   icon: Building },
+  { value: 'Efectivo Mostrador',     label: 'Efectivo Mostrador',  icon: Wallet },
 ];
 
 export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initialCanchaId, initialTime }) {
@@ -22,13 +21,21 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
   const nightFrom = config?.operacion?.horaNocturnaDesde ?? '19:00';
   const slots     = config?.operacion?.slots ?? [];
 
-  const [canchaId,       setCanchaId]       = useState(initialCanchaId || canchas[0]?.id || '');
-  const [time,           setTime]           = useState(initialTime || slots[0] || '20:00');
+  // Se valida que lo que viene por prop EXISTA en este complejo, no solo que
+  // no sea vacío. Un id que no existe se manda igual a la base y la rechaza por
+  // clave foránea, con un error que no dice nada útil ("Key is not present in
+  // table canchas") y el turno se pierde. Pasó de verdad: `App.jsx` arrastraba
+  // un `'c1'` de la época de los datos de demostración.
+  const canchaValida = canchas.some((c) => c.id === initialCanchaId) ? initialCanchaId : null;
+  const horaValida = slots.includes(initialTime) ? initialTime : null;
+
+  const [canchaId,       setCanchaId]       = useState(canchaValida || canchas[0]?.id || '');
+  const [time,           setTime]           = useState(horaValida || slots[0] || '20:00');
   const [clientName,     setClientName]     = useState('');
   const [clientPhone,    setClientPhone]    = useState('');
   const [paymentStatus,  setPaymentStatus]  = useState('partial');
   const [depositPaid,    setDepositPaid]    = useState(0);
-  const [paymentMethod,  setPaymentMethod]  = useState('Mercado Pago (Link QR Bot)');
+  const [paymentMethod,  setPaymentMethod]  = useState('Transferencia Bancaria');
   const [notes,          setNotes]          = useState('');
   const [cantinaItems,   setCantinaItems]   = useState([]);
 
@@ -90,11 +97,11 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
               width: 40, height: 40, borderRadius: 12,
-              background: 'linear-gradient(140deg, rgba(0,230,118,0.2), rgba(0,230,118,0.08))',
-              border: '1px solid rgba(0,230,118,0.35)',
+              background: 'linear-gradient(140deg, rgb(from var(--celeste) r g b / 0.2), rgb(from var(--celeste) r g b / 0.08))',
+              border: '1px solid rgb(from var(--celeste) r g b / 0.35)',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <Calendar size={18} color="var(--green)" />
+              <Calendar size={18} color="var(--celeste)" />
             </div>
             <div>
               <h3 className="font-heading" style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>
@@ -139,17 +146,17 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 14px', borderRadius: 10,
-              background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.2)'
+              background: 'rgb(from var(--celeste) r g b / 0.06)', border: '1px solid rgb(from var(--celeste) r g b / 0.2)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Zap size={14} color="var(--green)" />
+                <Zap size={14} color="var(--celeste)" />
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>
                   {selectedCancha?.nombre ?? 'Sin canchas activas'} ·
                   {isNight ? <Moon size={12} /> : <Sun size={12} />}
                   {isNight ? 'Nocturno' : 'Diurno'}
                 </span>
               </div>
-              <span className="font-heading num" style={{ fontWeight: 900, color: 'var(--green)', fontSize: '1rem' }}>
+              <span className="font-heading num" style={{ fontWeight: 900, color: 'var(--celeste)', fontSize: '1rem' }}>
                 {formatARS(basePrice)}
               </span>
             </div>
@@ -250,7 +257,7 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
                   <ShoppingBag size={13} color="var(--text-secondary)" /> Adicionales de Cantina
                 </span>
                 {cantinaTotal > 0 && (
-                  <span className="font-heading num" style={{ fontWeight: 800, color: 'var(--green)', fontSize: '0.85rem' }}>
+                  <span className="font-heading num" style={{ fontWeight: 800, color: 'var(--celeste)', fontSize: '0.85rem' }}>
                     +{formatARS(cantinaTotal)}
                   </span>
                 )}
@@ -277,7 +284,7 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
                         <ProdIcon size={13} color="var(--text-secondary)" />
                         <span>{prod.nombre.split(' ')[0]}</span>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{formatARS(prod.precio)}</span>
-                        <Plus size={11} color="var(--green)" />
+                        <Plus size={11} color="var(--celeste)" />
                       </button>
                     );
                   })}
