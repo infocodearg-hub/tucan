@@ -206,7 +206,7 @@ function AppInner({ onLogout }) {
       fecha: selectedDate,
       hora: legacyBooking.time,
       canchaId: legacyBooking.canchaId,
-      clienteId: null,
+      clienteId: legacyBooking.clienteId || null,
       clienteNombre: legacyBooking.clientName,
       clienteTelefono: normalizePhone(legacyBooking.clientPhone),
       estado: legacyBooking.status === 'blocked' ? 'bloqueado' : 'reservado',
@@ -255,13 +255,13 @@ function AppInner({ onLogout }) {
     return res.data.id;
   };
 
-  const handleSettleBooking = () => {
+  const handleSettleBooking = (_bookingId, method = 'efectivo') => {
     const legacy = liveBookingDetail;
     if (!legacy) return;
     const realId = ensureRealBookingId(legacy);
     const totals = selectors.selectBookingTotals(state, legacy._source);
     if (totals.saldo > 0) {
-      bookingActions.registrarPago(realId, { monto: totals.saldo, metodo: 'efectivo' });
+      bookingActions.registrarPago(realId, { monto: totals.saldo, metodo: method });
     }
     toast.success('¡Turno saldado correctamente! (100% Pagado)');
   };
@@ -296,26 +296,26 @@ function AppInner({ onLogout }) {
     toast.success('Seña validada.');
   };
 
-  const handleAddCantinaToBooking = (_bookingId, legacyProduct) => {
+  const handleAddCantinaToBooking = (_bookingId, cartItems) => {
     const legacy = liveBookingDetail;
     if (!legacy) return;
     const realId = ensureRealBookingId(legacy);
+    const total = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
+
     saleActions.registrar({
-      items: [
-        {
-          productoId: legacyProduct.id,
-          nombre: legacyProduct.name,
-          precioUnit: legacyProduct.price,
-          cantidad: 1,
-        },
-      ],
-      total: legacyProduct.price,
+      items: cartItems.map(item => ({
+        productoId: item.id,
+        nombre: item.name,
+        precioUnit: item.price,
+        cantidad: item.qty,
+      })),
+      total,
       metodoPago: 'a_cuenta_turno',
       bookingId: realId,
       clienteId: legacy._source.clienteId ?? null,
       canchaId: legacy._source.canchaId,
     });
-    toast.success(`+ ${legacyProduct.name} agregado al turno`);
+    toast.success(`Consumos agregados al turno`);
   };
 
   const handleEditBooking = (patch) => {

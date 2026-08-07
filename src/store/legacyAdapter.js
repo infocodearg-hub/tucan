@@ -49,9 +49,11 @@ export function toLegacyBooking(state, booking) {
     totalPrice: totals.total,
     depositPaid: totals.pagado,
     paymentMethod: ultimoPago ? (METODO_PAGO_LABEL[ultimoPago.metodo] ?? ultimoPago.metodo) : '-',
-    cantinaExtras: ventas.flatMap((v) =>
-      v.items.map((it) => ({ id: it.productoId, name: it.nombre, qty: it.cantidad, price: it.precioUnit }))
-    ),
+    cantinaExtras: Object.values(ventas.flatMap((v) => v.items).reduce((acc, it) => {
+      if (!acc[it.productoId]) acc[it.productoId] = { id: it.productoId, name: it.nombre, qty: 0, price: it.precioUnit };
+      acc[it.productoId].qty += it.cantidad;
+      return acc;
+    }, {})),
     notes: booking.notas ?? '',
     isFixed: !!booking.origenFijoId,
     channel: booking.canal === 'bot_wa' ? 'bot_ai' : 'manual',

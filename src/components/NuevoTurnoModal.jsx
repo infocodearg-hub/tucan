@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   X, Check, Calendar, Clock, User, Phone, Plus, ShoppingBag,
   Minus, Zap, Building, Wallet, Sun, Moon,
 } from 'lucide-react';
-import { useCanchasActivas, useConfig, useProducts } from '../store';
+import { useCanchasActivas, useConfig, useProducts, useClients } from '../store';
 import { precioSlot, isNightSlot } from '../lib/pricing';
 import { formatARS } from '../lib/format';
 import { iconForProduct } from '../lib/catalog';
@@ -18,26 +18,77 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
   const canchas   = useCanchasActivas();
   const config    = useConfig();
   const products  = useProducts();
+  const clients   = useClients();
   const nightFrom = config?.operacion?.horaNocturnaDesde ?? '19:00';
   const slots     = config?.operacion?.slots ?? [];
 
-  // Se valida que lo que viene por prop EXISTA en este complejo, no solo que
-  // no sea vacío. Un id que no existe se manda igual a la base y la rechaza por
-  // clave foránea, con un error que no dice nada útil ("Key is not present in
-  // table canchas") y el turno se pierde. Pasó de verdad: `App.jsx` arrastraba
-  // un `'c1'` de la época de los datos de demostración.
   const canchaValida = canchas.some((c) => c.id === initialCanchaId) ? initialCanchaId : null;
   const horaValida = slots.includes(initialTime) ? initialTime : null;
 
-  const [canchaId,       setCanchaId]       = useState(canchaValida || canchas[0]?.id || '');
-  const [time,           setTime]           = useState(horaValida || slots[0] || '20:00');
-  const [clientName,     setClientName]     = useState('');
-  const [clientPhone,    setClientPhone]    = useState('');
-  const [paymentStatus,  setPaymentStatus]  = useState('partial');
-  const [depositPaid,    setDepositPaid]    = useState(0);
-  const [paymentMethod,  setPaymentMethod]  = useState('Transferencia Bancaria');
-  const [notes,          setNotes]          = useState('');
-  const [cantinaItems,   setCantinaItems]   = useState([]);
+  const [canchaId,             setCanchaId]             = useState(canchaValida || canchas[0]?.id || '');
+  const [time,                 setTime]                 = useState(horaValida || slots[0] || '20:00');
+  const [clientName,           setClientName]           = useState('');
+  const [clientPhone,          setClientPhone]          = useState('');
+  const [selectedClientId,     setSelectedClientId]     = useState(null);
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [paymentStatus,        setPaymentStatus]        = useState('partial');
+  const [depositPaid,          setDepositPaid]          = useState(0);
+  const [paymentMethod,        setPaymentMethod]        = useState('Transferencia Bancaria');
+  const [notes,                setNotes]                = useState('');
+  const [cantinaItems,         setCantinaItems]         = useState([]);
+
+  const clientDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target)) {
+        setIsClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const searchClean = clientName.trim().toLowerCase();
+  const matchingClients = useMemo(() => {
+    if (!clients || clients.length === 0) return [];
+    if (!searchClean) return clients.slice(0, 7);
+    return clients.filter((c) => {
+      const n = (c.nombre || c.name || '').toLowerCase();
+      const p = (c.telefono || c.phone || '').toLowerCase();
+      return n.includes(searchClean) || p.includes(searchClean);
+    }).slice(0, 7);
+  }, [clients, searchClean]);
+
+  const selectedClient = useMemo(() => {
+    if (!selectedClientId || !clients) return null;
+    return clients.find((c) => c.id === selectedClientId) ?? null;
+  }, [clients, selectedClientId]);
+
+  const handleSelectClient = (c) => {
+    const name = c.nombre || c.name || '';
+    const phone = c.telefono || c.phone || '';
+    setClientName(name);
+    setClientPhone(phone);
+    setSelectedClientId(c.id);
+    setIsClientDropdownOpen(false);
+  };
+
+  const handleClientNameChange = (val) => {
+    setClientName(val);
+    setIsClientDropdownOpen(true);
+    if (selectedClientId) {
+      const sel = clients.find((c) => c.id === selectedClientId);
+      const selName = sel ? (sel.nombre || sel.name || '') : '';
+      if (val !== selName) {
+        setSelectedClientId(null);
+      }
+    }
+  };
+
+  const handleClearSelectedClient = () => {
+    setSelectedClientId(null);
+  };
 
   if (!isOpen) return null;
 
@@ -64,8 +115,23 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!clientName.trim()) return;
+
+    let finalClientId = selectedClientId;
+    if (!finalClientId && clientName.trim() && clients) {
+      const match = clients.find((c) => {
+        const n = (c.nombre || c.name || '').trim().toLowerCase();
+        const p = (c.telefono || c.phone || '').trim();
+        return (
+          (n && n === clientName.trim().toLowerCase()) ||
+          (p && clientPhone.trim() && p === clientPhone.trim())
+        );
+      });
+      if (match) finalClientId = match.id;
+    }
+
     onSaveBooking({
       canchaId, time,
+      clienteId: finalClientId || null,
       clientName, clientPhone,
       status: paymentStatus,
       totalPrice: grandTotal, depositPaid: actualDeposit,
@@ -161,24 +227,159 @@ export default function NuevoTurnoModal({ isOpen, onClose, onSaveBooking, initia
               </span>
             </div>
 
-            {/* ─── Client Details ─── */}
+            {/* ─── Client Details (Combobox) ─── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Cliente / Equipo *</label>
+              <div className="form-group" style={{ marginBottom: 0, position: 'relative' }} ref={clientDropdownRef}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Cliente / Equipo *</label>
+                  {selectedClient ? (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      color: 'var(--green)',
+                      background: 'rgb(from var(--green) r g b / 0.12)',
+                      border: '1px solid rgb(from var(--green) r g b / 0.3)',
+                      padding: '2px 7px',
+                      borderRadius: 6,
+                    }}>
+                      <Check size={11} /> CRM Vinc.
+                      <button
+                        type="button"
+                        onClick={handleClearSelectedClient}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: 0 }}
+                        title="Desvincular para escribir libre"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                      {clients && clients.length > 0 ? 'Buscar o escribir libre' : 'Carga manual'}
+                    </span>
+                  )}
+                </div>
+
                 <div className="input-icon-wrap">
-                  <User size={15} className="input-icon" />
+                  <User size={15} className="input-icon" color={selectedClient ? 'var(--green)' : 'var(--text-muted)'} />
                   <input
                     type="text"
                     placeholder="Ej: Los Pibes FC"
                     value={clientName}
-                    onChange={e => setClientName(e.target.value)}
+                    onChange={e => handleClientNameChange(e.target.value)}
+                    onFocus={() => setIsClientDropdownOpen(true)}
                     className="form-input"
                     required
+                    style={{
+                      borderColor: selectedClient ? 'rgb(from var(--green) r g b / 0.4)' : undefined,
+                    }}
                   />
                 </div>
+
+                {/* Dropdown de Clientes existentes */}
+                {isClientDropdownOpen && clients && clients.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-mid)',
+                    borderRadius: 12,
+                    boxShadow: '0 16px 40px rgba(0,0,0,0.85), 0 0 20px rgb(from var(--celeste) r g b / 0.15)',
+                    zIndex: 9999,
+                    maxHeight: 220,
+                    overflowY: 'auto',
+                    padding: 5,
+                  }}>
+                    {matchingClients.length > 0 ? (
+                      matchingClients.map((c) => {
+                        const name = c.nombre || c.name || 'Sin nombre';
+                        const phone = c.telefono || c.phone || 'Sin WhatsApp';
+                        const isSel = c.id === selectedClientId;
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => handleSelectClient(c)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 10px',
+                              borderRadius: 8,
+                              cursor: 'pointer',
+                              background: isSel ? 'rgb(from var(--celeste) r g b / 0.14)' : 'transparent',
+                              color: isSel ? 'var(--celeste)' : 'var(--text-primary)',
+                              marginBottom: 2,
+                              transition: 'background 0.15s ease',
+                            }}
+                            onMouseEnter={e => {
+                              if (!isSel) e.currentTarget.style.background = 'var(--bg-card-hover)';
+                            }}
+                            onMouseLeave={e => {
+                              if (!isSel) e.currentTarget.style.background = 'transparent';
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                              <div style={{
+                                width: 28, height: 28, borderRadius: 8,
+                                background: isSel ? 'var(--celeste)' : 'var(--bg-surface)',
+                                color: isSel ? 'var(--on-accent)' : 'var(--celeste)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 800, fontSize: '0.75rem', flexShrink: 0
+                              }}>
+                                {name.charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                <span style={{ fontSize: '0.83rem', fontWeight: isSel ? 800 : 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {name}
+                                </span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {phone}
+                                </span>
+                              </div>
+                            </div>
+                            {isSel && <Check size={14} color="var(--celeste)" style={{ flexShrink: 0 }} />}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div style={{ padding: '8px 10px', fontSize: '0.76rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        No hay coincidencias en el CRM.
+                      </div>
+                    )}
+
+                    {clientName.trim() && (
+                      <div
+                        onClick={() => setIsClientDropdownOpen(false)}
+                        style={{
+                          borderTop: '1px solid var(--border-dim)',
+                          marginTop: 4,
+                          paddingTop: 6,
+                          paddingBottom: 4,
+                          paddingLeft: 8,
+                          paddingRight: 8,
+                          fontSize: '0.74rem',
+                          color: 'var(--celeste)',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                      >
+                        <Plus size={12} color="var(--celeste)" />
+                        <span>Crear / Usar "{clientName.trim()}" libremente</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Teléfono WhatsApp</label>
+                <label className="form-label" style={{ marginBottom: 6 }}>Teléfono WhatsApp</label>
                 <div className="input-icon-wrap">
                   <Phone size={15} className="input-icon" />
                   <input

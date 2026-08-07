@@ -8,7 +8,7 @@
  *  - Usa formatARS de lib/format en vez de toLocaleString inline
  *  - Usa useConfig para el nombre del complejo en el mensaje de WhatsApp
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X, Calendar, ShoppingBag, CheckCircle2, Clock,
   MessageSquare, Trash2, Pencil, Save, User, Phone,
@@ -37,11 +37,20 @@ export default function DetalleTurnoModal({
   onValidatePayment,
 }) {
   const [showAddCantina, setShowAddCantina] = useState(false);
+  const [cart, setCart] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const { confirm, ConfirmDialogMount } = useConfirm();
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowAddCantina(false);
+      setCart([]);
+      setIsEditing(false);
+    }
+  }, [isOpen]);
 
   const canchas  = useCanchasActivas();
   const products = useProducts();
@@ -133,6 +142,33 @@ export default function DetalleTurnoModal({
 
   // Productos activos del store, máx 6 en el picker rápido
   const quickProducts = products.filter((p) => p.activo !== false).slice(0, 8);
+
+  const addToCart = (prod) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === prod.id);
+      if (existing) {
+        return prev.map((item) => item.id === prod.id ? { ...item, qty: item.qty + 1 } : item);
+      }
+      return [...prev, { id: prod.id, name: prod.nombre, price: prod.precio, qty: 1 }];
+    });
+  };
+
+  const removeFromCart = (prodId) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === prodId);
+      if (existing.qty === 1) {
+        return prev.filter((item) => item.id !== prodId);
+      }
+      return prev.map((item) => item.id === prodId ? { ...item, qty: item.qty - 1 } : item);
+    });
+  };
+
+  const handleConfirmCantina = () => {
+    if (cart.length === 0) return;
+    onAddCantinaToBooking(booking.id, cart);
+    setCart([]);
+    setShowAddCantina(false);
+  };
 
   return (
     <>
@@ -365,19 +401,16 @@ export default function DetalleTurnoModal({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {quickProducts.map((prod) => {
                   const ProdIcon = iconForProduct(prod);
+                  const cartItem = cart.find(c => c.id === prod.id);
                   return (
                     <button
                       key={prod.id}
                       type="button"
-                      onClick={() => {
-                        onAddCantinaToBooking(booking.id, {
-                          id: prod.id, name: prod.nombre, price: prod.precio,
-                        });
-                        setShowAddCantina(false);
-                      }}
+                      onClick={() => addToCart(prod)}
                       style={{
                         padding: '5px 9px', borderRadius: 7, fontSize: '0.74rem', fontWeight: 700,
-                        background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
+                        background: cartItem ? 'rgba(0,176,255,0.1)' : 'var(--bg-card)', 
+                        border: `1px solid ${cartItem ? 'var(--blue)' : 'var(--border-dim)'}`,
                         color: 'var(--text-primary)', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 5,
                       }}
@@ -389,6 +422,31 @@ export default function DetalleTurnoModal({
                   );
                 })}
               </div>
+
+              {cart.length > 0 && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border-dim)' }}>
+                  {cart.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', marginBottom: 6 }}>
+                      <span style={{ color: 'var(--text-primary)' }}>{item.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 800, color: 'var(--text-muted)' }}>{formatARS(item.price * item.qty)}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--border-dim)', borderRadius: 6 }}>
+                          <button onClick={() => removeFromCart(item.id)} style={{ padding: '2px 8px', color: 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}>-</button>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 700, width: 20, textAlign: 'center' }}>{item.qty}</span>
+                          <button onClick={() => addToCart({ id: item.id })} style={{ padding: '2px 8px', color: 'var(--text-primary)', cursor: 'pointer', background: 'none', border: 'none' }}>+</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={handleConfirmCantina}
+                    className="btn-primary"
+                    style={{ width: '100%', justifyContent: 'center', padding: '9px', fontSize: '0.82rem', marginTop: 10 }}
+                  >
+                    <CheckCircle2 size={14} style={{ color: 'var(--on-accent)' }} /> Confirmar Consumos ({formatARS(cart.reduce((a, b) => a + b.price * b.qty, 0))})
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -408,14 +466,24 @@ export default function DetalleTurnoModal({
             )}
 
             {!sinConfirmar && !isFullyPaid && (
-              <button
-                onClick={() => { onSettleBooking(booking.id); onClose(); }}
-                className="btn-primary"
-                style={{ width: '100%', justifyContent: 'center', padding: '11px', fontSize: '0.85rem' }}
-              >
-                <CheckCircle2 size={16} style={{ color: 'var(--on-accent)' }} />
-                Saldar Restante ({formatARS(balance)})
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => { onSettleBooking(booking.id, 'efectivo'); onClose(); }}
+                  className="btn-primary"
+                  style={{ flex: 1, justifyContent: 'center', padding: '11px', fontSize: '0.85rem', background: 'var(--green)' }}
+                >
+                  <CheckCircle2 size={16} style={{ color: 'var(--on-accent)' }} />
+                  Efectivo ({formatARS(balance)})
+                </button>
+                <button
+                  onClick={() => { onSettleBooking(booking.id, 'transferencia'); onClose(); }}
+                  className="btn-primary"
+                  style={{ flex: 1, justifyContent: 'center', padding: '11px', fontSize: '0.85rem' }}
+                >
+                  <CheckCircle2 size={16} style={{ color: 'var(--on-accent)' }} />
+                  Transferencia
+                </button>
+              </div>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
