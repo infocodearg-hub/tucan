@@ -233,7 +233,7 @@ export default function DateNav() {
           <ChevronLeft size={16} />
         </button>
 
-        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+        <div style={{ position: 'relative', flex: '0 1 auto', minWidth: 0 }}>
           <button
             onClick={() => setIsCalendarOpen((o) => !o)}
             style={{
@@ -241,8 +241,7 @@ export default function DateNav() {
               alignItems:     'center',
               justifyContent: 'center',
               gap:             7,
-              width:          '100%',
-              padding:        '7px 10px',
+              padding:        '7px 12px',
               borderRadius:   10,
               background:     'var(--bg-surface)',
               border:         `1px solid ${isCalendarOpen ? 'var(--celeste)' : 'var(--border-dim)'}`,
