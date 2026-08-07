@@ -259,13 +259,10 @@ export default function ReportesAnalytics() {
 
       {tab === 'general' && (
       <>
-      {/* Filtros: rango de fechas + cancha */}
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12,
-        padding: '12px 14px', borderRadius: 14,
-        background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
-      }}>
-        <div className="form-group" style={{ marginBottom: 0, minWidth: 150 }}>
+      {/* Filtros: rango de fechas + cancha. Los tres del mismo largo — ver
+          .filtros-reporte en index.css. */}
+      <div className="filtros-reporte">
+        <div className="form-group">
           <label className="form-label">Desde</label>
           <input
             type="date"
@@ -275,7 +272,7 @@ export default function ReportesAnalytics() {
             className="form-input num"
           />
         </div>
-        <div className="form-group" style={{ marginBottom: 0, minWidth: 150 }}>
+        <div className="form-group">
           <label className="form-label">Hasta</label>
           <input
             type="date"
@@ -286,7 +283,7 @@ export default function ReportesAnalytics() {
             className="form-input num"
           />
         </div>
-        <div className="form-group" style={{ marginBottom: 0, minWidth: 170, flex: 1 }}>
+        <div className="form-group">
           <label className="form-label">Cancha</label>
           <CustomSelect
             options={[{ value: 'all', label: 'Todas las canchas' }, ...canchasActivas.map((c) => ({ value: c.id, label: c.nombre }))]}

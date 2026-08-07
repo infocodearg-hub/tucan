@@ -1900,6 +1900,34 @@
   }
 }
 
+/* ─── Reportes: barra de filtros de la tab General ────────────────────────── */
+
+.filtros-reporte {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+}
+
+/* Mobile: uno por línea. El select de cancha tenía `flex: 1` y se estiraba
+   hasta el borde derecho de la barra, desproporcionado al lado de las dos
+   fechas; ahora los tres miden lo mismo. */
+.filtros-reporte .form-group {
+  margin-bottom: 0;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+@media (min-width: 40rem) {
+  .filtros-reporte .form-group {
+    flex: 0 1 175px;
+  }
+}
+
 /* ─── Reportes: charts de la tab General ──────────────────────────────────── */
 
 .reportes-charts-grid {
