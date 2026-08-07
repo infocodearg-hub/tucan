@@ -1698,6 +1698,22 @@
      En mobile es un diálogo centrado y no un popover: colgado del botón con
      `left: 0` se salía por el borde derecho de la pantalla, igual que pasaba
      con el panel de notificaciones. */
+  .date-nav-long {
+    display: none;
+  }
+  .date-nav-short {
+    display: inline;
+  }
+
+  @media (min-width: 36rem) {
+    .date-nav-long {
+      display: inline;
+    }
+    .date-nav-short {
+      display: none;
+    }
+  }
+
   .calendario-backdrop {
     position: fixed;
     inset: 0;

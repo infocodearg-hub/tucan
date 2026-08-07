@@ -23,6 +23,7 @@ import {
   dayOfWeek,
   daysInMonth,
   formatLongDate,
+  formatMediumDate,
   formatMonth,
   monthKey,
   relativeDayLabel,
@@ -58,6 +59,7 @@ function DayCell({ date, isSelected, onClick }) {
           : 'transparent',
         transition:     'all 0.15s ease',
         minWidth:        48,
+        flexShrink:      0,
       }}
     >
       {/* Etiqueta: Hoy / Mañana / Ayer / "Vie 8" */}
@@ -215,39 +217,42 @@ export default function DateNav() {
       borderRadius:    14,
       background:     'var(--bg-card)',
       border:         '1px solid var(--border-dim)',
+      width:           '100%',
       maxWidth:        '100%',
+      boxSizing:       'border-box',
     }}>
 
-      {/* Fila superior: chevrones + label + [Hoy] — encuadrada al contenido,
-          no estirada a todo el ancho del panel (el ancho final termina
-          resolviéndolo la tira de 7 días de abajo, que suele ser más ancha). */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Fila superior: chevrones + label + [Hoy] */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0 }}>
         <button
           className="btn-icon"
           onClick={() => goDay(-1)}
           title="Día anterior"
+          style={{ flexShrink: 0 }}
         >
           <ChevronLeft size={16} />
         </button>
 
-        <div style={{ position: 'relative', minWidth: 0 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
           <button
             onClick={() => setIsCalendarOpen((o) => !o)}
             style={{
               display:        'flex',
               alignItems:     'center',
+              justifyContent: 'center',
               gap:             7,
-              padding:        '7px 12px',
+              width:          '100%',
+              padding:        '7px 10px',
               borderRadius:   10,
               background:     'var(--bg-surface)',
               border:         `1px solid ${isCalendarOpen ? 'var(--celeste)' : 'var(--border-dim)'}`,
               cursor:         'pointer',
               minWidth:        0,
-              whiteSpace:      'nowrap',
+              boxSizing:       'border-box',
             }}
           >
             <CalendarDays size={14} color="var(--celeste)" style={{ flexShrink: 0 }} />
-            <span style={{
+            <span className="date-nav-long" style={{
               fontWeight:     800,
               fontSize:       '0.84rem',
               color:          'var(--text-primary)',
@@ -256,6 +261,16 @@ export default function DateNav() {
               whiteSpace:     'nowrap',
             }}>
               {formatLongDate(selectedDate)}
+            </span>
+            <span className="date-nav-short" style={{
+              fontWeight:     800,
+              fontSize:       '0.84rem',
+              color:          'var(--text-primary)',
+              overflow:       'hidden',
+              textOverflow:   'ellipsis',
+              whiteSpace:     'nowrap',
+            }}>
+              {formatMediumDate(selectedDate)}
             </span>
           </button>
 
@@ -272,6 +287,7 @@ export default function DateNav() {
           className="btn-icon"
           onClick={() => goDay(1)}
           title="Día siguiente"
+          style={{ flexShrink: 0 }}
         >
           <ChevronRight size={16} />
         </button>
@@ -294,6 +310,8 @@ export default function DateNav() {
         gap:             2,
         overflowX:      'auto',
         paddingBottom:   2,
+        width:          '100%',
+        WebkitOverflowScrolling: 'touch',
       }}>
         {weekDays.map((date) => (
           <DayCell
