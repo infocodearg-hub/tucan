@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
+import { obtenerSesion, STORAGE_KEY } from './sesionPrueba.mjs';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const BASE = process.env.BASE || 'http://localhost:5173';
@@ -13,7 +14,17 @@ const VIEWPORTS = (process.env.VIEWPORTS || '390x844,768x1024,1440x900')
     return { width: w, height: h };
   });
 
-const TABS = (process.env.TABS || 'grilla,turnos_fijos,cantina,clientes,reportes,configuracion,vista_publica').split(',');
+// 'light' (el oficial) y 'dark' (el "Deep Pitch" de siempre) — ver
+// src/theme/ThemeProvider.jsx. Mismo localStorage que usa el toggle real.
+const THEMES = (process.env.THEME || 'light').split(',');
+
+// `vista_publica` ya no es un tab del panel: vive en /reserva/<slug> como página
+// aparte y se captura por separado.
+const TABS = (process.env.TABS || 'grilla,turnos_fijos,cantina,clientes,reportes,configuracion').split(',');
+
+// Sesión real de Supabase. No alcanza con un token inventado: el AuthProvider
+// resuelve la membresía contra la base y RLS filtra por el usuario del token.
+const { session } = await obtenerSesion();
 
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -30,15 +41,29 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
 
-// Inyecta sesion activa ANTES de que cargue el bundle, para saltar LoginScreen
-await page.evaluateOnNewDocument(() => {
-  localStorage.setItem('tucan_session_v1', JSON.stringify({ loggedIn: true, ts: Date.now() }));
-});
+// Inyecta la sesion y el tema ANTES de que cargue el bundle, para saltar
+// LoginScreen y no depender del toggle real en cada corrida. `networkidle0`
+// no alcanza como espera: despues del login la app todavia tiene que traer
+// los datos del complejo, por eso cada goto suma una pausa.
+async function inyectarSesionYTema(tema) {
+  await page.evaluateOnNewDocument(
+    (key, ses, temaKey, tema) => {
+      localStorage.setItem(key, JSON.stringify(ses));
+      localStorage.setItem(temaKey, tema);
+    },
+    STORAGE_KEY,
+    session,
+    'tucan:ui:theme',
+    tema
+  );
+}
 
+for (const tema of THEMES) {
 for (const vp of VIEWPORTS) {
   await page.setViewport({ ...vp, deviceScaleFactor: 2 });
+  await inyectarSesionYTema(tema);
   await page.goto(BASE, { waitUntil: 'networkidle0' });
-  await new Promise((r) => setTimeout(r, 600));
+  await new Promise((r) => setTimeout(r, 1500));
 
   for (const tab of TABS) {
     // Click sidebar (desktop) o bottom-nav (mobile) segun exista
@@ -61,13 +86,15 @@ for (const vp of VIEWPORTS) {
     if (!clicked) continue;
     await new Promise((r) => setTimeout(r, 450));
 
-    const file = path.join(OUT, `${vp.width}-${tab}.png`);
+    const file = path.join(OUT, `${tema}-${vp.width}-${tab}.png`);
     await page.screenshot({ path: file, fullPage: true });
   }
 }
+} // fin for (tema)
 
-// Overflow horizontal check
+// Overflow horizontal check — un solo tema alcanza, no es donde vive el riesgo
 await page.setViewport({ width: 320, height: 720, deviceScaleFactor: 2 });
+await inyectarSesionYTema(THEMES[0]);
 await page.goto(BASE, { waitUntil: 'networkidle0' });
 await new Promise((r) => setTimeout(r, 500));
 const overflow = await page.evaluate(() => {
@@ -87,7 +114,7 @@ const overflow = await page.evaluate(() => {
   }
   return { docW, scrollW: document.documentElement.scrollWidth, bad: bad.slice(0, 25) };
 });
-await page.screenshot({ path: path.join(OUT, '320-grilla.png'), fullPage: true });
+await page.screenshot({ path: path.join(OUT, `${THEMES[0]}-320-grilla.png`), fullPage: true });
 
 console.log(JSON.stringify({ errors: [...new Set(errors)].slice(0, 20), overflow }, null, 2));
 await browser.close();
