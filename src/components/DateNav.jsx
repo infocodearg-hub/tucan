@@ -50,11 +50,11 @@ function DayCell({ date, isSelected, onClick }) {
         padding:        '7px 10px',
         borderRadius:   10,
         cursor:         'pointer',
-        border:         `1px solid ${isSelected ? 'rgba(0,230,118,0.5)' : 'transparent'}`,
+        border:         `1px solid ${isSelected ? 'rgb(from var(--celeste) r g b / 0.5)' : 'transparent'}`,
         background:     isSelected
-          ? 'rgba(0,230,118,0.12)'
+          ? 'rgb(from var(--celeste) r g b / 0.12)'
           : isToday
-          ? 'rgba(0,230,118,0.05)'
+          ? 'rgb(from var(--celeste) r g b / 0.05)'
           : 'transparent',
         transition:     'all 0.15s ease',
         minWidth:        48,
@@ -64,7 +64,7 @@ function DayCell({ date, isSelected, onClick }) {
       <span style={{
         fontSize:   '0.68rem',
         fontWeight:  isSelected ? 900 : isToday ? 800 : 600,
-        color:       isSelected ? 'var(--green)' : isToday ? 'var(--green)' : 'var(--text-muted)',
+        color:       isSelected ? 'var(--celeste)' : isToday ? 'var(--celeste)' : 'var(--text-muted)',
         lineHeight:  1,
         whiteSpace:  'nowrap',
       }}>
@@ -77,7 +77,7 @@ function DayCell({ date, isSelected, onClick }) {
         height:         6,
         borderRadius:   '50%',
         background:     hasOccupation
-          ? isSelected ? 'var(--green)' : 'rgba(0,230,118,0.6)'
+          ? isSelected ? 'var(--celeste)' : 'rgb(from var(--celeste) r g b / 0.6)'
           : 'var(--border-dim)',
         transition:     'background 0.2s',
       }} />
@@ -181,9 +181,9 @@ function CalendarPopover({ selectedDate, onSelect, onClose }) {
                 fontSize: '0.78rem',
                 fontWeight: isSelected ? 900 : isToday ? 800 : 600,
                 cursor: 'pointer',
-                color: isSelected ? 'var(--on-accent)' : isToday ? 'var(--green)' : 'var(--text-primary)',
-                background: isSelected ? 'var(--green)' : isToday ? 'rgba(0,230,118,0.1)' : 'transparent',
-                border: isToday && !isSelected ? '1px solid rgba(0,230,118,0.35)' : '1px solid transparent',
+                color: isSelected ? 'var(--on-accent)' : isToday ? 'var(--celeste)' : 'var(--text-primary)',
+                background: isSelected ? 'var(--celeste)' : isToday ? 'rgb(from var(--celeste) r g b / 0.1)' : 'transparent',
+                border: isToday && !isSelected ? '1px solid rgb(from var(--celeste) r g b / 0.35)' : '1px solid transparent',
               }}
             >
               {Number(iso.slice(-2))}
@@ -211,14 +211,18 @@ export default function DateNav() {
     <div style={{
       display:        'flex',
       flexDirection:  'column',
+      alignSelf:       'flex-start',
       gap:             10,
       padding:        '12px 14px',
       borderRadius:    14,
       background:     'var(--bg-card)',
       border:         '1px solid var(--border-dim)',
+      maxWidth:        '100%',
     }}>
 
-      {/* Fila superior: chevrones + label + [Hoy] */}
+      {/* Fila superior: chevrones + label + [Hoy] — encuadrada al contenido,
+          no estirada a todo el ancho del panel (el ancho final termina
+          resolviéndolo la tira de 7 días de abajo, que suele ser más ancha). */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button
           className="btn-icon"
@@ -228,23 +232,23 @@ export default function DateNav() {
           <ChevronLeft size={16} />
         </button>
 
-        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+        <div style={{ position: 'relative', minWidth: 0 }}>
           <button
             onClick={() => setIsCalendarOpen((o) => !o)}
             style={{
-              width:          '100%',
               display:        'flex',
               alignItems:     'center',
               gap:             7,
               padding:        '7px 12px',
               borderRadius:   10,
               background:     'var(--bg-surface)',
-              border:         `1px solid ${isCalendarOpen ? 'var(--green)' : 'var(--border-dim)'}`,
+              border:         `1px solid ${isCalendarOpen ? 'var(--celeste)' : 'var(--border-dim)'}`,
               cursor:         'pointer',
               minWidth:        0,
+              whiteSpace:      'nowrap',
             }}
           >
-            <CalendarDays size={14} color="var(--green)" style={{ flexShrink: 0 }} />
+            <CalendarDays size={14} color="var(--celeste)" style={{ flexShrink: 0 }} />
             <span style={{
               fontWeight:     800,
               fontSize:       '0.84rem',

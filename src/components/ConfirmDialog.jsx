@@ -91,9 +91,9 @@ export function useConfirm() {
               padding: '9px 18px', borderRadius: 10, fontWeight: 800, fontSize: '0.84rem',
               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
               transition: 'all 0.18s ease',
-              background: dialog.danger ? 'rgba(255,79,79,0.15)' : 'rgba(0,230,118,0.15)',
-              border: `1px solid ${dialog.danger ? 'rgba(255,79,79,0.4)' : 'rgba(0,230,118,0.4)'}`,
-              color: dialog.danger ? 'var(--red)' : 'var(--green)',
+              background: dialog.danger ? 'rgba(255,79,79,0.15)' : 'rgb(from var(--celeste) r g b / 0.15)',
+              border: `1px solid ${dialog.danger ? 'rgba(255,79,79,0.4)' : 'rgb(from var(--celeste) r g b / 0.4)'}`,
+              color: dialog.danger ? 'var(--red)' : 'var(--celeste)',
             }}
           >
             {dialog.confirmLabel}

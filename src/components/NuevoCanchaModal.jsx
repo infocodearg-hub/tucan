@@ -10,7 +10,7 @@ import CustomSelect from './CustomSelect';
 import { DEPORTE_OPTIONS } from '../lib/status';
 
 const COLOR_SWATCHES = [
-  'var(--green)', 'var(--blue)', 'var(--purple)', 'var(--amber)', 'var(--red)', 'var(--volt)',
+  'var(--celeste)', 'var(--blue)', 'var(--purple)', 'var(--amber)', 'var(--red)', 'var(--volt)',
 ];
 
 export default function NuevoCanchaModal({ isOpen, onClose, cancha = null, onSave }) {
@@ -69,14 +69,14 @@ export default function NuevoCanchaModal({ isOpen, onClose, cancha = null, onSav
                 width: 38,
                 height: 38,
                 borderRadius: 10,
-                background: 'rgba(0,230,118,0.12)',
-                border: '1px solid rgba(0,230,118,0.3)',
+                background: 'rgb(from var(--celeste) r g b / 0.12)',
+                border: '1px solid rgb(from var(--celeste) r g b / 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <MapPin size={18} color="var(--green)" />
+              <MapPin size={18} color="var(--celeste)" />
             </div>
             <div>
               <h3

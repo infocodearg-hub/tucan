@@ -11,20 +11,26 @@ import {
   HelpCircle,
   BarChart3,
   Clock,
-  Volleyball,
   MessageSquare,
   DollarSign,
   AlertTriangle,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useConfig, useCanchasActivas, useUIActions } from '../store';
+import { useAuth } from '../auth/AuthProvider';
+import { useTheme } from '../theme/ThemeProvider';
 import { nowTimeWithSeconds } from '../lib/date';
+import logoSetygol from '../assets/logo-setygol.png';
 
 /** Manual de uso publicado — es lo que se le manda al cliente junto al link. */
 const MANUAL_URL = 'https://claude.ai/code/artifact/ea2c6de4-747d-4b2e-a78c-0c0275f626ea';
 
 export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, setActiveTab, onLogout }) {
+  const auth        = useAuth();
   const config      = useConfig();
   const canchas     = useCanchasActivas();
+  const { theme, toggleTheme } = useTheme();
   const { setActiveTab: storeSetActiveTab } = useUIActions();
   const navSetTab   = setActiveTab ?? storeSetActiveTab;
 
@@ -50,7 +56,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
   }, []);
 
   const notifications = [
-    { id: 1, icon: MessageSquare, text: 'Nuevo turno agendado por cliente', sub: 'Marcos Benítez · Cancha 1 19:00 hs', read: false, color: 'var(--green)' },
+    { id: 1, icon: MessageSquare, text: 'Nuevo turno agendado por cliente', sub: 'Marcos Benítez · Cancha 1 19:00 hs', read: false, color: 'var(--celeste)' },
     { id: 2, icon: DollarSign, text: 'Seña recibida $13.000', sub: 'Mercado Pago · Cancha 1 20:00 hs', read: false, color: 'var(--blue)' },
     { id: 3, icon: AlertTriangle, text: 'Turno sin seña a las 22:00 hs', sub: 'Santiago Ledesma · Cancha 2', read: true, color: 'var(--amber)' },
   ];
@@ -68,31 +74,16 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
           className="flex items-center gap-2.5 flex-shrink-0 hover:opacity-90 transition-opacity"
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
-          <div style={{
-            width: 38, height: 38, borderRadius: 11,
-            background: 'linear-gradient(140deg, var(--green) 0%, var(--green-dark) 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(0,230,118,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-            flexShrink: 0
-          }}>
-            <Volleyball size={20} color="white" strokeWidth={2.2} />
-          </div>
-          <div className="hidden sm:block">
-            <div className="flex items-center gap-1.5">
-              <span className="font-heading font-extrabold text-xl tracking-tight" style={{ color: 'var(--text-primary)', lineHeight: 1 }}>
-                Tu<span style={{ color: 'var(--green)' }}>Can</span>
-              </span>
-              <span style={{
-                fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.08em',
-                padding: '2px 7px', borderRadius: 99,
-                background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
-                color: 'var(--green)', textTransform: 'uppercase', lineHeight: 1.5
-              }}>PRO</span>
-            </div>
-            <p className="hidden lg:block" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 1 }}>
-              Gestión Integral de Canchas
-            </p>
-          </div>
+          {/* La imagen es el wordmark real (fondo azul del logo incluido, es
+              un JPEG sin transparencia — boceto, se reemplaza el archivo el
+              día que haya una versión final en PNG/SVG). Reemplaza al ícono +
+              texto estilizado de antes: no tiene sentido re-tipear "set&gol"
+              con una tipografía web cuando el logo ya trae la suya propia. */}
+          <img
+            src={logoSetygol}
+            alt="Set&gol"
+            style={{ height: 30, width: 'auto', borderRadius: 6, flexShrink: 0 }}
+          />
         </button>
 
         {/* Separator */}
@@ -108,7 +99,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
           }}
           className="hidden lg:flex hover-venue-btn"
         >
-          <Building2 size={15} color="var(--green)" style={{ flexShrink: 0 }} />
+          <Building2 size={15} color="var(--celeste)" style={{ flexShrink: 0 }} />
           <div className="min-w-0">
             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {config?.complejo?.nombre ?? 'Complejo'}
@@ -142,8 +133,8 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '2px 8px', borderRadius: 99,
-            background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
-            fontSize: '0.74rem', fontWeight: 800, color: 'var(--green)'
+            background: 'rgb(from var(--celeste) r g b / 0.12)', border: '1px solid rgb(from var(--celeste) r g b / 0.3)',
+            fontSize: '0.74rem', fontWeight: 800, color: 'var(--celeste)'
           }}>
             <span className="pulse-dot" style={{ width: 6, height: 6 }} />
             <span>Bot activo</span>
@@ -159,8 +150,23 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
 
         {/* Cobrar Cantina — desktop */}
         <button onClick={onOpenCantina} className="btn-secondary hidden sm:inline-flex" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-          <ShoppingBag size={15} color="var(--green)" />
+          <ShoppingBag size={15} color="var(--celeste)" />
           <span className="hidden md:inline">Cantina</span>
+        </button>
+
+        {/* Tema claro/oscuro. Claro es el oficial (celeste Set&gol); oscuro
+            sigue disponible pixel-idéntico al diseño anterior — ver
+            src/theme/ThemeProvider.jsx y el bloque [data-theme="dark"] de
+            index.css. */}
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={toggleTheme}
+          style={{ width: 38, height: 38 }}
+          title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+          aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
         {/* Notifications */}
@@ -215,14 +221,14 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
             style={{
               width: 38, height: 38, borderRadius: 11,
               background: 'linear-gradient(140deg, var(--bg-surface) 0%, var(--bg-card-hover) 100%)',
-              border: '1px solid rgba(0,230,118,0.35)',
+              border: '1px solid rgb(from var(--celeste) r g b / 0.35)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, color: 'var(--green)',
+              cursor: 'pointer', fontSize: '0.75rem', fontWeight: 900, color: 'var(--celeste)',
               transition: 'all 0.2s ease',
-              boxShadow: profileOpen ? '0 0 0 2px rgba(0,230,118,0.3)' : 'none'
+              boxShadow: profileOpen ? '0 0 0 2px rgb(from var(--celeste) r g b / 0.3)' : 'none'
             }}
           >
-            EM
+            {((auth?.nombreMostrado ?? 'Usuario') || 'U').slice(0, 2).toUpperCase()}
           </button>
 
           {profileOpen && (
@@ -232,7 +238,7 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
                   {config?.complejo?.nombre ?? 'Complejo'}
                 </p>
                 <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 1 }}>
-                  {config?.acceso?.nombreMostrado ?? 'Administrador'}
+                  {auth?.nombreMostrado ?? 'Administrador'} {auth?.esDueno ? '(Dueño)' : '(Empleado)'}
                 </p>
               </div>
 

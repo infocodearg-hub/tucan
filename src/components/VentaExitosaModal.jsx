@@ -9,7 +9,7 @@ import { exportTicketPDF } from '../lib/pdfExport';
 function TicketBody({ sale }) {
   const ink = 'var(--text-primary)';
   const muted = 'var(--text-muted)';
-  const accent = 'var(--green)';
+  const accent = 'var(--celeste)';
   const border = 'var(--border-mid)';
 
   return (
@@ -63,11 +63,11 @@ export default function VentaExitosaModal({ sale, onClose }) {
           {/* Checkmark decorativo — no forma parte del ticket */}
           <div style={{
             width: 56, height: 56, borderRadius: '50%',
-            background: 'linear-gradient(140deg, rgba(0,230,118,0.25), rgba(0,230,118,0.08))',
-            border: '1px solid rgba(0,230,118,0.4)',
-            boxShadow: '0 0 24px rgba(0,230,118,0.28)',
+            background: 'linear-gradient(140deg, rgb(from var(--celeste) r g b / 0.25), rgb(from var(--celeste) r g b / 0.08))',
+            border: '1px solid rgb(from var(--celeste) r g b / 0.4)',
+            boxShadow: '0 0 24px rgb(from var(--celeste) r g b / 0.28)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 14px', color: 'var(--green)'
+            margin: '0 auto 14px', color: 'var(--celeste)'
           }}>
             <CheckCircle2 size={30} />
           </div>
@@ -92,7 +92,7 @@ export default function VentaExitosaModal({ sale, onClose }) {
               className="btn-secondary"
               style={{ flex: 1, padding: '10px', fontSize: '0.82rem', justifyContent: 'center', gap: 6 }}
             >
-              <Download size={14} color="var(--green)" /> Descargar Ticket
+              <Download size={14} color="var(--celeste)" /> Descargar Ticket
             </button>
             <button
               type="button"

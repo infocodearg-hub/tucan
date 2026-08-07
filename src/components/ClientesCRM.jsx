@@ -3,10 +3,12 @@ import { Search, MessageSquare, AlertTriangle, Award, ShieldCheck, Crown, UserPl
 import NuevoClienteModal from './NuevoClienteModal';
 import { useConfirm } from './ConfirmDialog';
 import { useClientActions, useToast } from '../store';
+import { usePuede } from '../auth/AuthProvider';
+import { formatARSCompact } from '../lib/format';
 
 const SCORE_COLOR = (score) => {
   const n = parseFloat(score);
-  if (n >= 9) return { color: 'var(--green)', bg: 'rgba(0,230,118,0.1)', border: 'rgba(0,230,118,0.3)' };
+  if (n >= 9) return { color: 'var(--green)', bg: 'rgb(from var(--green) r g b / 0.1)', border: 'rgb(from var(--green) r g b / 0.3)' };
   if (n >= 7) return { color: 'var(--blue)', bg: 'rgba(0,176,255,0.1)', border: 'rgba(0,176,255,0.3)' };
   return { color: 'var(--red)', bg: 'rgba(255,79,79,0.1)', border: 'rgba(255,79,79,0.3)' };
 };
@@ -19,7 +21,7 @@ const SCORE_COLOR = (score) => {
 const BADGE_META = {
   vip: { icon: Crown, color: 'var(--amber)', bg: 'rgba(255,179,0,0.12)' },
   habitual: { icon: ShieldCheck, color: 'var(--blue)', bg: 'rgba(0,176,255,0.12)' },
-  ocasional: { icon: Award, color: 'var(--green)', bg: 'rgba(0,230,118,0.12)' },
+  ocasional: { icon: Award, color: 'var(--celeste)', bg: 'rgb(from var(--celeste) r g b / 0.12)' },
   riesgo: { icon: AlertTriangle, color: 'var(--red)', bg: 'rgba(255,79,79,0.12)' },
   nuevo: { icon: UserPlus, color: 'var(--text-muted)', bg: 'var(--bg-surface)' },
 };
@@ -36,6 +38,9 @@ export default function ClientesCRM({ clients }) {
 
   const clientActions = useClientActions();
   const toast = useToast();
+  // Ver el tacho sin poder borrar sería mentirle al empleado: la policy de la
+  // base rechaza el DELETE igual.
+  const puedeEliminar = usePuede('eliminar_registros');
   const { confirm, ConfirmDialogMount } = useConfirm();
 
   const filtered = clients.filter(c =>
@@ -104,7 +109,7 @@ export default function ClientesCRM({ clients }) {
       {/* Stats Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
         {[
-          { label: 'Total Clientes', value: clients.length, color: 'var(--green)', sub: 'en base de datos' },
+          { label: 'Total Clientes', value: clients.length, color: 'var(--celeste)', sub: 'en base de datos' },
           {
             label: 'VIP / Regulares',
             // `c.score` es texto ("9.8/10"): compararlo como string hacía
@@ -114,7 +119,7 @@ export default function ClientesCRM({ clients }) {
             sub: 'score ≥ 9.0',
           },
           { label: 'Atención Especial', value: clients.filter(c => c.cancellations > 1).length, color: 'var(--amber)', sub: 'cancelaciones' },
-          { label: 'Total Recaudado', value: `$${(clients.reduce((s,c) => s + c.totalSpent, 0)/1000).toFixed(0)}k`, color: 'var(--volt)', sub: 'entre todos' },
+          { label: 'Total Recaudado', value: formatARSCompact(clients.reduce((s,c) => s + c.totalSpent, 0)), color: 'var(--volt)', sub: 'entre todos' },
         ].map((s, i) => (
           <div key={i} style={{
             padding: '14px 16px', borderRadius: 12, background: 'var(--bg-card)', border: '1px solid var(--border-dim)'
@@ -180,7 +185,7 @@ export default function ClientesCRM({ clients }) {
                 {[
                   { label: 'Partidos', value: client.matchesPlayed, color: 'var(--text-primary)' },
                   { label: 'Cancelaciones', value: client.cancellations, color: client.cancellations > 1 ? 'var(--red)' : 'var(--green)' },
-                  { label: 'Total', value: `$${(client.totalSpent/1000).toFixed(0)}k`, color: 'var(--green)' },
+                  { label: 'Total', value: formatARSCompact(client.totalSpent), color: 'var(--green)' },
                 ].map((s, i) => (
                   <div key={i} style={{ textAlign: 'center' }}>
                     <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</p>
@@ -210,15 +215,17 @@ export default function ClientesCRM({ clients }) {
                   >
                     <Pencil size={11} />
                   </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteClient(client._source); }}
-                    aria-label={`Eliminar ${client.name}`}
-                    className="btn-icon"
-                    style={{ width: 26, height: 26, color: 'var(--red)' }}
-                  >
-                    <Trash2 size={11} />
-                  </button>
+                  {puedeEliminar && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteClient(client._source); }}
+                      aria-label={`Eliminar ${client.name}`}
+                      className="btn-icon"
+                      style={{ width: 26, height: 26, color: 'var(--red)' }}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
                 <a
                   href={`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}`}
@@ -228,7 +235,7 @@ export default function ClientesCRM({ clients }) {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
                     padding: '5px 10px', borderRadius: 8, flexShrink: 0,
-                    background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)',
+                    background: 'rgb(from var(--green) r g b / 0.08)', border: '1px solid rgb(from var(--green) r g b / 0.25)',
                     color: 'var(--green)', fontSize: '0.74rem', fontWeight: 700,
                     textDecoration: 'none', transition: 'all 0.15s ease'
                   }}
@@ -254,7 +261,7 @@ export default function ClientesCRM({ clients }) {
           onClose={() => setClientModal(null)}
           cliente={clientModal === 'new' ? null : clientModal}
           onSave={handleSaveClient}
-          onDelete={handleDeleteClient}
+          onDelete={puedeEliminar ? handleDeleteClient : undefined}
         />
       )}
       {ConfirmDialogMount}

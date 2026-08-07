@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CalendarDays,
   Repeat,
@@ -6,22 +6,59 @@ import {
   Users,
   BarChart3,
   Settings,
-  Sparkles
+  MessageSquare,
+  Sparkles,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useTurnosFijos } from '../store';
 import { pluralize } from '../lib/format';
+import { useAuth } from '../auth/AuthProvider';
+import { puedeVerTab } from '../auth/permisos';
+import { useDerivacionesAbiertas } from './DerivacionesBot';
+
+/**
+ * Preferencia de interfaz, no dato del complejo: por eso NO usa el prefijo
+ * `tucan:cache:` ni `tucan:state:`, que `purgarCacheLocal()` borra al cerrar
+ * sesión. Que la barra se mantenga como la dejaste después de salir y volver a
+ * entrar es lo esperable; que se resetee, no.
+ */
+const CLAVE_COLAPSADA = 'tucan:ui:sidebar';
+
+function leerPreferencia() {
+  try {
+    return localStorage.getItem(CLAVE_COLAPSADA) === 'colapsada';
+  } catch {
+    // Safari en modo privado tira al tocar localStorage. Una barra que no
+    // recuerda su estado es molesto; una app que no abre, no.
+    return false;
+  }
+}
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const turnosFijos = useTurnosFijos();
+  const auth = useAuth();
   const equiposActivos = turnosFijos.filter((tf) => tf.activo).length;
+  // `enabled` en false para quien ni va a ver el tab: no tiene sentido
+  // pagar la consulta (ni la suscripción Realtime) por un badge invisible.
+  const { derivaciones } = useDerivacionesAbiertas({ enabled: puedeVerTab('derivaciones', auth) });
+  const [colapsada, setColapsada] = useState(leerPreferencia);
 
-  const menuItems = [
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLAVE_COLAPSADA, colapsada ? 'colapsada' : 'abierta');
+    } catch {
+      /* sin persistencia, pero la barra sigue funcionando en esta sesión */
+    }
+  }, [colapsada]);
+
+  const todosLosItems = [
     {
       id: 'grilla',
       label: 'Grilla de Turnos',
       icon: CalendarDays,
       badge: 'En Vivo',
-      badgeStyle: { background: 'rgba(0,230,118,0.15)', color: 'var(--green)', border: '1px solid rgba(0,230,118,0.3)' }
+      badgeStyle: { background: 'rgb(from var(--celeste) r g b / 0.15)', color: 'var(--celeste)', border: '1px solid rgb(from var(--celeste) r g b / 0.3)' }
     },
     {
       id: 'turnos_fijos',
@@ -54,6 +91,13 @@ export default function Sidebar({ activeTab, setActiveTab }) {
       icon: Settings,
       badge: null
     },
+    {
+      id: 'derivaciones',
+      label: 'Derivaciones',
+      icon: MessageSquare,
+      badge: derivaciones.length > 0 ? String(derivaciones.length) : null,
+      badgeStyle: { background: 'rgba(255,193,7,0.15)', color: 'var(--amber)', border: '1px solid rgba(255,193,7,0.3)' }
+    },
     // Vista Pública / QR: movida a su propia página en /reserva (ver src/main.jsx).
     // Se saca del panel de administración por ahora — el link y QR para compartir
     // viven en Configuración > Complejo.
@@ -66,11 +110,16 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     // },
   ];
 
+  // Una sección para la que el empleado no tiene permiso no se muestra
+  // deshabilitada: no se muestra. Un botón gris que nunca sirve solo genera
+  // preguntas al dueño.
+  const menuItems = todosLosItems.filter((item) => puedeVerTab(item.id, auth));
+
   return (
-    <aside className="sidebar hidden md:flex">
+    <aside className={`sidebar hidden md:flex ${colapsada ? 'is-collapsed' : ''}`}>
       {/* ─── Navigation ─── */}
       <div>
-        <div className="label-caps" style={{ padding: '4px 10px 10px' }}>
+        <div className="label-caps sidebar-solo-abierta" style={{ padding: '4px 10px 10px' }}>
           Panel de Control
         </div>
 
@@ -84,18 +133,24 @@ export default function Sidebar({ activeTab, setActiveTab }) {
                 id={`nav-${item.id}`}
                 onClick={() => setActiveTab(item.id)}
                 className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
+                // Cerrada, el `title` es lo único que dice qué es cada icono.
+                // Es el tooltip nativo y no uno propio a propósito: la barra
+                // tiene `overflow-y: auto`, así que cualquier globo dibujado
+                // con ::after quedaría recortado contra su propio borde.
+                title={colapsada ? item.label : undefined}
+                aria-label={colapsada ? item.label : undefined}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                  <div className="nav-icon" style={{ color: isActive ? 'var(--green)' : 'var(--text-muted)' }}>
+                <div className="nav-item-main" style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                  <div className="nav-icon" style={{ color: isActive ? 'var(--celeste)' : 'var(--text-muted)' }}>
                     <Icon size={15} />
                   </div>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span className="nav-label" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.label}
                   </span>
                 </div>
 
                 {item.badge && (
-                  <span style={{
+                  <span className="nav-badge" style={{
                     fontSize: '0.6rem',
                     fontWeight: 700,
                     padding: '2px 6px',
@@ -116,39 +171,62 @@ export default function Sidebar({ activeTab, setActiveTab }) {
 
       {/* ─── Bottom: Info ─── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 12 }}>
-        
-        {/* Complex Pro Card */}
-        <div style={{
-          padding: '14px',
-          borderRadius: 14,
-          background: 'linear-gradient(140deg, rgba(0,230,118,0.08) 0%, rgba(0,176,255,0.05) 100%)',
-          border: '1px solid rgba(0,230,118,0.2)',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-            <Sparkles size={14} color="var(--green)" />
-            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>TuCan PRO</span>
-          </div>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Gestión completa de canchas, turnos fijos, clientes y cantina POS.
-          </p>
-        </div>
 
-        {/* Version info */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '6px 10px', borderRadius: 8, background: 'var(--bg-surface)',
-          border: '1px solid var(--border-dim)'
-        }}>
-          <span style={{ fontSize: '0.68rem', color: 'var(--text-faint)', fontWeight: 600 }}>
-            TuCan v3.0 · Argentina
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span className="pulse-dot" style={{ width: 6, height: 6 }} />
-            <span style={{ fontSize: '0.68rem', color: 'var(--green)', fontWeight: 700 }}>Online</span>
-          </div>
-        </div>
+        {/* El botón de colapso va acá abajo y no arriba: arriba compite con el
+            logo del navbar y con el título de la sección, y es una acción que
+            se usa una vez por semana, no una de navegación. */}
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={() => setColapsada((v) => !v)}
+          title={colapsada ? 'Expandir el menú' : 'Contraer el menú'}
+          aria-label={colapsada ? 'Expandir el menú' : 'Contraer el menú'}
+          aria-expanded={!colapsada}
+        >
+          {colapsada ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+          <span className="nav-label">Contraer menú</span>
+        </button>
+
+        {/* Las dos tarjetas se sacan del árbol en vez de esconderse con CSS.
+            Ambas traen `display` en un `style` inline, y eso le gana a
+            cualquier `display: none` de una clase: la de versión se quedaba
+            visible, aplastada a 68px y con el texto desbordando el borde. */}
+        {!colapsada && (
+          <>
+            {/* Complex Pro Card */}
+            <div style={{
+              padding: '14px',
+              borderRadius: 14,
+              background: 'linear-gradient(140deg, rgb(from var(--celeste) r g b / 0.08) 0%, rgba(0,176,255,0.05) 100%)',
+              border: '1px solid rgb(from var(--celeste) r g b / 0.2)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                <Sparkles size={14} color="var(--celeste)" />
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>Plan Max</span>
+              </div>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Gestión completa de canchas, turnos fijos, clientes y cantina POS.
+              </p>
+            </div>
+
+            {/* Version info */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 10px', borderRadius: 8, background: 'var(--bg-surface)',
+              border: '1px solid var(--border-dim)'
+            }}>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-faint)', fontWeight: 600 }}>
+                Set&amp;gol v3.0 · Argentina
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span className="pulse-dot" style={{ width: 6, height: 6 }} />
+                <span style={{ fontSize: '0.68rem', color: 'var(--celeste)', fontWeight: 700 }}>Online</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
     </aside>

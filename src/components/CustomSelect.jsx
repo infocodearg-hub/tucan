@@ -44,8 +44,8 @@ export default function CustomSelect({
           padding: '10px 14px',
           borderRadius: 12,
           background: 'var(--bg-input)',
-          border: `1px solid ${isOpen ? 'var(--green)' : 'var(--border-mid)'}`,
-          boxShadow: isOpen ? '0 0 16px rgba(0,230,118,0.22)' : 'none',
+          border: `1px solid ${isOpen ? 'var(--celeste)' : 'var(--border-mid)'}`,
+          boxShadow: isOpen ? '0 0 16px rgb(from var(--celeste) r g b / 0.22)' : 'none',
           color: 'var(--text-primary)',
           cursor: 'pointer',
           transition: 'all 0.18s ease',
@@ -53,7 +53,7 @@ export default function CustomSelect({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, overflow: 'hidden' }}>
-          {SelectedIcon && <SelectedIcon size={15} color="var(--green)" style={{ flexShrink: 0 }} />}
+          {SelectedIcon && <SelectedIcon size={15} color="var(--celeste)" style={{ flexShrink: 0 }} />}
           {!SelectedIcon && DefaultIcon && <DefaultIcon size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
           <span style={{ fontSize: '0.84rem', fontWeight: 600, color: value ? 'var(--text-primary)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {selectedLabel}
@@ -75,7 +75,7 @@ export default function CustomSelect({
           background: 'var(--bg-card)',
           border: '1px solid var(--border-mid)',
           borderRadius: 14,
-          boxShadow: '0 20px 50px rgba(0,0,0,0.85), 0 0 24px rgba(0,230,118,0.1)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.85), 0 0 24px rgb(from var(--celeste) r g b / 0.1)',
           zIndex: 9999,
           maxHeight: 230,
           overflowY: 'auto',
@@ -104,8 +104,8 @@ export default function CustomSelect({
                   cursor: 'pointer',
                   fontSize: '0.82rem',
                   fontWeight: isSelected ? 800 : 500,
-                  color: isSelected ? 'var(--green)' : 'var(--text-primary)',
-                  background: isSelected ? 'rgba(0,230,118,0.12)' : 'transparent',
+                  color: isSelected ? 'var(--celeste)' : 'var(--text-primary)',
+                  background: isSelected ? 'rgb(from var(--celeste) r g b / 0.12)' : 'transparent',
                   transition: 'all 0.15s ease',
                   marginBottom: 2
                 }}
@@ -117,10 +117,10 @@ export default function CustomSelect({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                  {OptIcon && <OptIcon size={15} color={isSelected ? 'var(--green)' : 'var(--text-muted)'} style={{ flexShrink: 0 }} />}
+                  {OptIcon && <OptIcon size={15} color={isSelected ? 'var(--celeste)' : 'var(--text-muted)'} style={{ flexShrink: 0 }} />}
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{optLbl}</span>
                 </div>
-                {isSelected && <Check size={14} color="var(--green)" style={{ flexShrink: 0 }} />}
+                {isSelected && <Check size={14} color="var(--celeste)" style={{ flexShrink: 0 }} />}
               </div>
             );
           })}

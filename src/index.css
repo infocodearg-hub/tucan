@@ -1,17 +1,24 @@
 @import 'tailwindcss';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TuCan — Sistema de diseño "Deep Pitch"
-   Cancha de noche: casi negro con tinte de césped, verde como acento puntual.
+   Set&gol — Sistema de diseño
+
+   Claro es el oficial (celeste + blanco, identidad del logo); oscuro sigue
+   existiendo como opción, pixel-idéntico al "Deep Pitch" verde de antes —
+   ver el bloque `:root[data-theme="dark"]` más abajo, con TODOS los valores
+   de color redefinidos ahí. Todo lo demás de este archivo (tipografía,
+   radios, sombras, motion) es compartido entre los dos temas.
 
    REGLAS DE DISCIPLINA (romperlas es lo que hacía que esto pareciera un template):
-   1. El glow verde (--shadow-glow) vive en UNA sola clase: .btn-primary.
-   2. El verde es: CTA primario, anillo de foco, nav activo y estado "pagado".
-      Nada más es verde.
-   3. Los bordes son NEUTROS (blanco con alfa). Los bordes verdes en cada card
-      son la razón por la que todo brillaba.
-   4. Todo número (plata, hora, %) lleva la clase .num → cifras tabulares.
-   5. Elevación monótona: página 950 → card surface-1 → hover surface-2 →
+   1. El glow de acento (--shadow-glow) vive en UNA sola clase: .btn-primary.
+   2. El acento de marca (celeste en claro, verde en oscuro) es: CTA primario,
+      anillo de foco y nav activo. Nada más lo usa.
+   3. "Pagado" es SIEMPRE verde, en los dos temas — es un color de estado del
+      negocio, no de marca. No se toca aunque cambie el acento.
+   4. Los bordes son NEUTROS (negro o blanco con alfa, según el tema). Los
+      bordes de color en cada card son la razón por la que todo brillaba.
+   5. Todo número (plata, hora, %) lleva la clase .num → cifras tabulares.
+   6. Elevación monótona: página 950 → card surface-1 → hover surface-2 →
       overlay surface-3. Nunca una card sobre otra del mismo valor.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -43,41 +50,53 @@
   --tracking-display: -0.03em;
   --tracking-label: 0.07em;
 
-  /* ── Superficies ──────────────────────────────────────────────────────── */
-  --color-pitch-950: #060a09; /* página */
-  --color-pitch-900: #0b100e; /* barras y fondos fijos */
-  --color-surface-1: #111815; /* card */
-  --color-surface-2: #18211d; /* hover / elevado */
-  --color-surface-3: #202b26; /* popover, modal, dropdown */
-  --color-surface-input: #0c1210;
+  /* ── Superficies — CLARO, el oficial ────────────────────────────────────
+     El oscuro completo (valores exactos de antes) vive en el bloque
+     `:root[data-theme="dark"]`, más abajo en este archivo. */
+  --color-pitch-950: #f3f6fb; /* página */
+  --color-pitch-900: #ffffff; /* barras y fondos fijos */
+  --color-surface-1: #ffffff; /* card */
+  --color-surface-2: #eaf1fb; /* hover / elevado */
+  --color-surface-3: #ffffff; /* popover, modal, dropdown */
+  --color-surface-input: #f5f8fc;
 
-  /* ── Bordes: neutros, no verdes ───────────────────────────────────────── */
-  --color-border-subtle: rgb(255 255 255 / 0.07);
-  --color-border-base: rgb(255 255 255 / 0.12);
-  --color-border-strong: rgb(255 255 255 / 0.18);
-  --color-border-accent: rgb(0 230 118 / 0.4);
+  /* ── Bordes: neutros, no de color ────────────────────────────────────── */
+  --color-border-subtle: rgb(15 23 42 / 0.08);
+  --color-border-base: rgb(15 23 42 / 0.14);
+  --color-border-strong: rgb(15 23 42 / 0.2);
+  --color-border-accent: rgb(30 111 224 / 0.4);
 
   /* ── Texto ────────────────────────────────────────────────────────────── */
-  --color-text-primary: #f2f6f3;
-  --color-text-secondary: #a9b8b0;
-  --color-text-muted: #77897f;
-  --color-text-faint: #55665d;
-  --color-text-inverse: #04130a;
+  --color-text-primary: #0b1526;
+  --color-text-secondary: #4c5a6e;
+  --color-text-muted: #7c8797;
+  --color-text-faint: #a7b0bc;
+  --color-text-inverse: #ffffff;
 
-  /* ── Acento: un solo ramp verde ───────────────────────────────────────── */
-  --color-accent-300: #6bffb4;
-  --color-accent-400: #34f58f;
-  --color-accent-500: #00e676;
-  --color-accent-600: #00bd60;
-  --color-accent-700: #00934a;
+  /* ── Acento: celeste Set&gol (reemplaza al verde como color de marca) ──── */
+  --color-accent-300: #8fc4f5;
+  --color-accent-400: #4fa3ea;
+  --color-accent-500: #1e6fe0;
+  --color-accent-600: #1857b8;
+  --color-accent-700: #123f8a;
 
-  /* ── Estado semántico ─────────────────────────────────────────────────── */
-  --color-paid-500: #21c97a; /* pagado — verde, no azul */
-  --color-partial-500: #f5a524; /* señado */
-  --color-fixed-500: #a78bfa; /* turno fijo */
-  --color-blocked-500: #f0524d; /* bloqueado */
-  --color-bot-500: #22d3ee; /* canal bot */
-  --color-lime-500: #b6e548; /* acento secundario, ex "volt" */
+  /* ── Estado semántico — mismo hue que en oscuro, retocado para contraste
+     sobre blanco (un tono más oscuro/saturado que sobre fondo casi negro) ──
+     El verde de "pagado" lleva rampa completa (no solo el 500) porque es lo
+     que terminan usando `--green`/`--green-dark`/`--green-glow` más abajo:
+     resultó que el verde de este sistema, en la práctica, casi nunca es
+     "marca" — es "plata"/"al día"/"éxito" en decenas de lugares (recaudación,
+     seña abonada, cliente VIP, ocupación alta). Separarlo del celeste de
+     marca no es opcional acá. */
+  --color-paid-400: #4ade80;
+  --color-paid-500: #16a34a; /* pagado — SIEMPRE verde, en los dos temas */
+  --color-paid-600: #15803d;
+  --color-paid-700: #14532d;
+  --color-partial-500: #d97706; /* señado */
+  --color-fixed-500: #7c5cfc; /* turno fijo */
+  --color-blocked-500: #dc2626; /* bloqueado */
+  --color-bot-500: #0891b2; /* canal bot */
+  --color-lime-500: #65a30d; /* acento secundario, ex "volt" */
 
   /* ── Radios ───────────────────────────────────────────────────────────── */
   --radius-xs: 6px;
@@ -117,19 +136,39 @@
   --z-popover: 3000;
   --z-toast: 4000;
 
-  /* El único glow del sistema */
-  --shadow-glow: 0 6px 22px -6px rgb(0 230 118 / 0.5);
+  /* El único glow del sistema. Es un rgb() fijo y no `var(--color-accent-500)`
+     porque el glow necesita SU PROPIO alfa (0.5) sin heredar el de otro uso
+     del acento — por eso se redefine de nuevo en `:root[data-theme="dark"]`
+     en vez de derivarse solo. */
+  --shadow-glow: 0 6px 22px -6px rgb(30 111 224 / 0.5);
   --ring-focus:
     0 0 0 2px var(--color-pitch-950), 0 0 0 4px var(--color-accent-500);
 
   /* ── Alias heredados ────────────────────────────────────────────────────
      Los componentes referencian estos nombres en cientos de estilos inline.
      Mapearlos a los tokens nuevos hace que toda la app adopte la identidad
-     nueva sin tocar una línea de JSX. Se retiran al migrar los inline styles. */
-  --green-glow: var(--color-accent-400);
-  --green: var(--color-accent-500);
-  --green-dark: var(--color-accent-600);
-  --green-deep: var(--color-accent-700);
+     nueva sin tocar una línea de JSX. Se retiran al migrar los inline styles.
+
+     IMPORTANTE — por qué `--green` NO apunta a `--color-accent-*`: en este
+     archivo "acento" pasó a significar celeste (marca), pero en el resto de
+     la app `var(--green)` casi siempre significa "plata"/"éxito"/"al día",
+     no "marca". Apuntarlo al celeste hubiera pintado de azul la
+     "Recaudación Hoy", la seña abonada y cada "cliente VIP" de la app. Por
+     eso apunta a la rampa `--color-paid-*` acá (claro); en
+     `:root[data-theme="dark"]` se pisa de nuevo apuntando a
+     `--color-accent-*`, que es exactamente lo que era antes de este cambio
+     — el oscuro no se entera de esta distinción, queda pixel-idéntico. */
+  --green-glow: var(--color-paid-400);
+  --green: var(--color-paid-500);
+  --green-dark: var(--color-paid-600);
+  --green-deep: var(--color-paid-700);
+
+  /* Color de MARCA (logo/UI), separado del `--green` semántico de arriba.
+     En claro es el celeste del logo; en oscuro (ver más abajo) sigue siendo
+     el mismo verde de siempre — así todo lo que hoy usa `var(--green)` para
+     cosas de marca (no plata) puede migrar a `var(--celeste)` sin que el
+     tema oscuro cambie un solo pixel. */
+  --celeste: var(--color-accent-500);
 
   --bg-pitch: var(--color-pitch-950);
   --bg-card: var(--color-surface-1);
@@ -162,6 +201,63 @@
   --shadow-sm: var(--shadow-e2);
   --shadow-card: var(--shadow-e3);
   --ease-out: var(--ease-out-quint);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMA OSCURO — "Deep Pitch", el diseño original completo.
+
+   Cada `--color-*` de acá es el valor EXACTO que tenía el bloque `@theme` de
+   arriba antes del rebrand a Set&gol: activar este tema no cambia un solo
+   pixel respecto de lo que había. El selector `:root[data-theme="dark"]`
+   tiene más especificidad que las variables de `@theme` y se declara después
+   en el archivo, así que gana la cascada sin tocar ninguna clase ni
+   componente — ese es todo el punto de que el resto de la app lea colores
+   solo por variable CSS (ver la regla del repo al respecto).
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme='dark'] {
+  --color-pitch-950: #060a09;
+  --color-pitch-900: #0b100e;
+  --color-surface-1: #111815;
+  --color-surface-2: #18211d;
+  --color-surface-3: #202b26;
+  --color-surface-input: #0c1210;
+
+  --color-border-subtle: rgb(255 255 255 / 0.07);
+  --color-border-base: rgb(255 255 255 / 0.12);
+  --color-border-strong: rgb(255 255 255 / 0.18);
+  --color-border-accent: rgb(0 230 118 / 0.4);
+
+  --color-text-primary: #f2f6f3;
+  --color-text-secondary: #a9b8b0;
+  --color-text-muted: #77897f;
+  --color-text-faint: #55665d;
+  --color-text-inverse: #04130a;
+
+  --color-accent-300: #6bffb4;
+  --color-accent-400: #34f58f;
+  --color-accent-500: #00e676;
+  --color-accent-600: #00bd60;
+  --color-accent-700: #00934a;
+
+  --color-paid-500: #21c97a;
+  --color-partial-500: #f5a524;
+  --color-fixed-500: #a78bfa;
+  --color-blocked-500: #f0524d;
+  --color-bot-500: #22d3ee;
+  --color-lime-500: #b6e548;
+
+  /* Acá SÍ vuelve a valer "verde == acento": es el diseño original completo,
+     y en oscuro el acento siempre fue verde. Ver la nota larga en el bloque
+     `:root` de más arriba sobre por qué el claro rompe ese acoplamiento. */
+  --green-glow: var(--color-accent-400);
+  --green: var(--color-accent-500);
+  --green-dark: var(--color-accent-600);
+  --green-deep: var(--color-accent-700);
+  --celeste: var(--color-accent-500);
+
+  --shadow-glow: 0 6px 22px -6px rgb(0 230 118 / 0.5);
+  --atmosphere-a: rgb(0 230 118 / 0.055);
+  --atmosphere-b: rgb(34 211 238 / 0.03);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -201,7 +297,9 @@
   }
 
   /* Atmósfera: dos halos muy tenues + grano.
-     Da profundidad sin robarle contraste a los datos. */
+     Da profundidad sin robarle contraste a los datos. Celeste por defecto
+     (claro); el oscuro pisa las dos variables con el verde/cian original —
+     ver `:root[data-theme="dark"]`. */
   body::before {
     content: '';
     position: fixed;
@@ -209,8 +307,8 @@
     z-index: 0;
     pointer-events: none;
     background:
-      radial-gradient(70rem 34rem at 12% -8%, rgb(0 230 118 / 0.055), transparent 62%),
-      radial-gradient(52rem 30rem at 96% 2%, rgb(34 211 238 / 0.03), transparent 58%);
+      radial-gradient(70rem 34rem at 12% -8%, var(--atmosphere-a, rgb(30 111 224 / 0.05)), transparent 62%),
+      radial-gradient(52rem 30rem at 96% 2%, var(--atmosphere-b, rgb(30 111 224 / 0.035)), transparent 58%);
   }
 
   body::after {
@@ -270,7 +368,7 @@
   }
 
   ::selection {
-    background: rgb(0 230 118 / 0.25);
+    background: rgb(from var(--celeste) r g b / 0.25);
     color: var(--color-text-primary);
   }
 
@@ -470,7 +568,7 @@
     height: 7px;
     border-radius: 50%;
     background: var(--color-accent-500);
-    box-shadow: 0 0 0 3px rgb(0 230 118 / 0.16);
+    box-shadow: 0 0 0 3px rgb(from var(--celeste) r g b / 0.16);
     animation: pulse-glow 2.4s infinite ease-in-out;
     flex-shrink: 0;
   }
@@ -558,7 +656,7 @@
   }
 
   .sidebar-nav-item.active {
-    background: rgb(0 230 118 / 0.1);
+    background: rgb(from var(--celeste) r g b / 0.1);
     color: var(--color-accent-400);
   }
 
@@ -580,6 +678,89 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+  }
+
+  /* ── Sidebar colapsada ──────────────────────────────────────────────── */
+  /*
+     Se redefine `--sidebar-w` en el propio elemento en vez de tocar el ancho:
+     así la variable sigue siendo el único lugar que decide cuánto mide, y
+     cualquier cosa que la lea se entera del cambio sin saber del colapso.
+  */
+
+  .sidebar {
+    transition: width 0.22s var(--ease-out-quint);
+  }
+
+  .sidebar.is-collapsed {
+    --sidebar-w: 68px;
+    padding-inline: 8px;
+  }
+
+  /* El texto se va de una y el ancho anima: intentar animar las dos cosas hace
+     que las etiquetas se corten a mitad de camino y se lea peor.
+
+     Sirve solo para elementos SIN `display` en un style inline — un inline le
+     gana a la clase. Lo que lo trae (las tarjetas del pie) se saca del árbol
+     desde el JSX. */
+  .sidebar.is-collapsed .nav-label,
+  .sidebar.is-collapsed .nav-badge,
+  .sidebar.is-collapsed .sidebar-solo-abierta {
+    display: none;
+  }
+
+  .sidebar.is-collapsed .sidebar-nav-item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  /* Centrar el botón no alcanza: adentro hay un contenedor con `flex: 1` que
+     ocupa todo el ancho y deja el icono pegado a su borde izquierdo. */
+  .sidebar.is-collapsed .nav-item-main {
+    flex: 0 0 auto;
+    justify-content: center;
+    gap: 0;
+  }
+
+  /* El indicador de sección activa sobrevive al colapso: con los iconos solos
+     es lo único que dice dónde estás parado. */
+  .sidebar.is-collapsed .sidebar-nav-item.active::before {
+    height: 22px;
+  }
+
+  .sidebar-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+      background 0.16s var(--ease-out-quint),
+      color 0.16s var(--ease-out-quint),
+      border-color 0.16s var(--ease-out-quint);
+  }
+
+  .sidebar-toggle:hover {
+    background: var(--color-surface-2);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+  }
+
+  .sidebar.is-collapsed .sidebar-toggle {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar {
+      transition: none;
+    }
   }
 
   /* ── Botones ────────────────────────────────────────────────────────── */
@@ -634,7 +815,7 @@
       var(--color-accent-500) 100%
     );
     box-shadow:
-      0 8px 26px -6px rgb(0 230 118 / 0.62),
+      0 8px 26px -6px rgb(from var(--celeste) r g b / 0.62),
       inset 0 1px 0 rgb(255 255 255 / 0.38);
   }
 
@@ -898,7 +1079,7 @@
   .form-textarea:focus {
     border-color: var(--color-accent-500);
     background: var(--color-surface-2);
-    box-shadow: 0 0 0 3px rgb(0 230 118 / 0.14);
+    box-shadow: 0 0 0 3px rgb(from var(--celeste) r g b / 0.14);
   }
 
   .form-input:disabled {
@@ -999,7 +1180,7 @@
   }
 
   .toggle-switch input:checked + .toggle-slider {
-    background: rgb(0 230 118 / 0.25);
+    background: rgb(from var(--celeste) r g b / 0.25);
     border-color: var(--color-border-accent);
   }
 
@@ -1130,6 +1311,17 @@
     color: var(--color-bot-500);
   }
 
+  /* Sin confirmar: gris, y el borde punteado del slot hace el resto. Cualquier
+     color fuerte acá compite con "señado" y "pagado", que son los dos estados
+     que el mostrador necesita distinguir de un vistazo. */
+  .badge-pending,
+  .badge[data-status='pendiente'] {
+    background: var(--color-surface-3);
+    border-color: var(--color-border-strong);
+    border-style: dashed;
+    color: var(--color-text-secondary);
+  }
+
   /* ── Slots de la grilla ─────────────────────────────────────────────── */
 
   .slot-free {
@@ -1149,7 +1341,7 @@
   }
 
   .slot-free:hover {
-    background: rgb(0 230 118 / 0.06);
+    background: rgb(from var(--celeste) r g b / 0.06);
     border-color: var(--color-border-accent);
     border-style: solid;
   }

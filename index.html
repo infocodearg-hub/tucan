@@ -5,18 +5,32 @@
     <!-- viewport-fit=cover activa env(safe-area-inset-*): sin esto la bottom-nav
          queda debajo de la barra gestual del iPhone -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#060A09" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#1E6FE0" />
+    <meta name="color-scheme" content="light dark" />
     <link
       rel="icon"
       type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B100E'/%3E%3Cpath d='M16 5.5A10.5 10.5 0 1 0 26.5 16 10.51 10.51 0 0 0 16 5.5Zm0 2.2 4.6 3.34-1.76 5.4h-5.68l-1.76-5.4Z' fill='%2300E676'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231E6FE0'/%3E%3Cpath d='M16 5.5A10.5 10.5 0 1 0 26.5 16 10.51 10.51 0 0 0 16 5.5Zm0 2.2 4.6 3.34-1.76 5.4h-5.68l-1.76-5.4Z' fill='%23FFFFFF'/%3E%3C/svg%3E"
     />
-    <title>TuCan · Gestión de canchas</title>
+    <title>Set&amp;gol · Gestión de canchas</title>
     <meta
       name="description"
       content="Plataforma de gestión integral para complejos deportivos en Argentina. Turnos, cantina, señas y bot de WhatsApp."
     />
+    <!-- Aplica el tema ANTES del primer render: sin esto, alguien con "oscuro"
+         guardado ve un flash de celeste/blanco (el tema por defecto) durante
+         una fracción de segundo mientras carga el bundle de React. No usa el
+         ThemeProvider porque corre antes de que exista cualquier React. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('tucan:ui:theme');
+          if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        } catch (e) {
+          /* localStorage bloqueado (Safari privado) — se queda en claro, el default */
+        }
+      })();
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
