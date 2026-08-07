@@ -217,7 +217,7 @@ export default function DateNav() {
       borderRadius:    14,
       background:     'var(--bg-card)',
       border:         '1px solid var(--border-dim)',
-      width:           '100%',
+      width:           'fit-content',
       maxWidth:        '100%',
       boxSizing:       'border-box',
     }}>
