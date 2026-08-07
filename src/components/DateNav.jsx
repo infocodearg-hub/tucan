@@ -116,20 +116,17 @@ function CalendarPopover({ selectedDate, onSelect, onClose }) {
   const weekdayLabels = DIAS_SEMANA.slice(1).map((d) => d.corto[0]);
 
   return (
-    <div
-      ref={ref}
-      className="dropdown-menu"
-      role="dialog"
-      aria-label="Elegir fecha"
-      style={{
-        position: 'absolute',
-        top: 'calc(100% + 6px)',
-        left: 0,
-        width: 'min(296px, calc(100vw - 48px))',
-        zIndex: 'var(--z-popover)',
-        padding: 12,
-      }}
-    >
+    <>
+      {/* Solo se ve en mobile, donde el calendario pasa a ser un diálogo
+          centrado: da algo que tocar para cerrar y despega el panel del
+          fondo. En desktop queda oculto (ver .calendario-backdrop). */}
+      <div className="calendario-backdrop" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={ref}
+        className="dropdown-menu calendario-popover"
+        role="dialog"
+        aria-label="Elegir fecha"
+      >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <button
           type="button"
@@ -190,8 +187,9 @@ function CalendarPopover({ selectedDate, onSelect, onClose }) {
             </button>
           );
         })}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
