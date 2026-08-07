@@ -41,3 +41,4 @@ Thumbs.db
 coverage/
 .eslintcache
 tools/_*.png
+n8n/.ultimo-pull.json
