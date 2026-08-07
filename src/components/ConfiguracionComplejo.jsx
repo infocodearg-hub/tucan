@@ -13,22 +13,30 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Building2, CreditCard, ShieldCheck, Save,
+  Building2, CreditCard, Save,
   Bot, MapPin, Zap, Plus, Pencil, Trash2, EyeOff, Eye, Sun, Moon,
-  QrCode, Copy, Check,
+  QrCode, Copy, Check, KeyRound, Users, Clock,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useConfig, useConfigActions, useCanchaActions, useToast, useCanchas, useAppState } from '../store';
 import { useConfirm } from './ConfirmDialog';
 import NuevoCanchaModal from './NuevoCanchaModal';
+import UsuariosYPermisos from './UsuariosYPermisos';
+import ClaveBot from './ClaveBot';
+import Section from './Section';
+import DisponibilidadHoraria from './DisponibilidadHoraria';
+import { useAuth } from '../auth/AuthProvider';
 import { DEPORTE_LABEL } from '../lib/status';
 
 // ─── Link + QR para compartir la reserva pública ──────────────────────────────
 
 function EnlaceReservaPublica() {
+  const { tenant } = useAuth();
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copiado, setCopiado] = useState(false);
-  const url = `${window.location.origin}/reserva`;
+  // El slug identifica al complejo en la página pública. Sin él la URL no sirve:
+  // la Edge Function no sabría de qué complejo mostrar los horarios.
+  const url = `${window.location.origin}/reserva/${tenant?.slug ?? ''}`;
 
   useEffect(() => {
     QRCode.toDataURL(url, { width: 176, margin: 1, color: { dark: '#0a0f0c', light: '#ffffff' } })
@@ -68,27 +76,11 @@ function EnlaceReservaPublica() {
             {url}
           </code>
           <button type="button" onClick={handleCopy} className="btn-secondary" style={{ padding: '7px 12px', fontSize: '0.78rem' }}>
-            {copiado ? <Check size={13} color="var(--green)" /> : <Copy size={13} />}
+            {copiado ? <Check size={13} color="var(--celeste)" /> : <Copy size={13} />}
             {copiado ? 'Copiado' : 'Copiar'}
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── Section wrapper ──────────────────────────────────────────────────────────
-
-function Section({ title, icon, iconColor = 'var(--green)', children }) {
-  return (
-    <div style={{ padding: '20px', borderRadius: 14, background: 'var(--bg-card)', border: '1px solid var(--border-dim)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 14, borderBottom: '1px solid var(--border-dim)' }}>
-        <div style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${iconColor}18`, border: `1px solid ${iconColor}33`, color: iconColor }}>
-          {icon}
-        </div>
-        <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{title}</h3>
-      </div>
-      {children}
     </div>
   );
 }
@@ -119,7 +111,9 @@ function ToggleRow({ label, sub, value, onChange }) {
 const TABS = [
   { id: 'complejo', label: 'Complejo' },
   { id: 'canchas', label: 'Canchas' },
+  { id: 'disponibilidad', label: 'Disponibilidad' },
   { id: 'cobros', label: 'Cobros' },
+  { id: 'equipo', label: 'Equipo' },
   { id: 'bot', label: 'Bot IA' },
 ];
 
@@ -194,6 +188,14 @@ export default function ConfiguracionComplejo() {
     [configActions]
   );
 
+  // `operacion` guarda además `slots` y `horaNocturnaDesde`, que los escribe
+  // solo el asistente de alta. Acá se editan las reglas que el dueño necesita
+  // poder cambiar con el complejo andando.
+  const updateOperacion = useCallback(
+    (patch) => configActions.actualizar({ operacion: patch }),
+    [configActions]
+  );
+
   const handleSave = (e) => {
     e.preventDefault();
     toast.success('Configuración guardada correctamente');
@@ -208,7 +210,8 @@ export default function ConfiguracionComplejo() {
     );
   }
 
-  const { complejo, pagos, integraciones } = config;
+  const { complejo, pagos, integraciones, operacion = {} } = config;
+  const horarioAtencion = operacion.horarioAtencion ?? { desde: '09:00', hasta: '23:59' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -287,6 +290,72 @@ export default function ConfiguracionComplejo() {
 
           <Section title="Reserva Online" icon={<QrCode size={15} />} iconColor="var(--volt)">
             <EnlaceReservaPublica />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 16 }}>
+              <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
+                <label className="form-label">Guardar el turno sin confirmar (min)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="1440"
+                  value={operacion.minutosExpiracionPendiente ?? 60}
+                  onChange={(e) =>
+                    updateOperacion({ minutosExpiracionPendiente: Number(e.target.value) || 60 })
+                  }
+                  className="form-input num"
+                />
+                <p className="form-hint">
+                  Cuánto le aguantás el horario a alguien que reservó por la web y todavía no señó.
+                  Pasado ese rato el turno se cancela solo y el horario vuelve a estar libre.
+                </p>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
+                <label className="form-label">Cancelar por WhatsApp hasta (horas antes)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="168"
+                  value={operacion.horasMinimasCancelacion ?? 12}
+                  onChange={(e) =>
+                    updateOperacion({ horasMinimasCancelacion: Number(e.target.value) || 0 })
+                  }
+                  className="form-input num"
+                />
+                <p className="form-hint">
+                  Más cerca del turno que esto, el bot no cancela: te pasa la conversación a vos.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+              <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
+                <label className="form-label">Atienden desde</label>
+                <input
+                  type="time"
+                  value={horarioAtencion.desde ?? '09:00'}
+                  onChange={(e) =>
+                    updateOperacion({ horarioAtencion: { ...horarioAtencion, desde: e.target.value } })
+                  }
+                  className="form-input num"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0, minWidth: 0 }}>
+                <label className="form-label">Atienden hasta</label>
+                <input
+                  type="time"
+                  value={horarioAtencion.hasta ?? '23:59'}
+                  onChange={(e) =>
+                    updateOperacion({ horarioAtencion: { ...horarioAtencion, hasta: e.target.value } })
+                  }
+                  className="form-input num"
+                />
+              </div>
+            </div>
+            <p className="form-hint" style={{ marginTop: 8 }}>
+              El bot reserva las 24 horas igual. Este horario es el que le dice al cliente
+              cuándo le va a contestar una persona.
+            </p>
           </Section>
           </>
         )}
@@ -307,13 +376,13 @@ export default function ConfiguracionComplejo() {
                 key={c.id}
                 style={{
                   padding: '12px 14px', borderRadius: 11, background: 'var(--bg-surface)',
-                  border: `1px solid var(--border-dim)`, borderLeft: `3px solid ${c.color ?? 'var(--green)'}`,
+                  border: `1px solid var(--border-dim)`, borderLeft: `3px solid ${c.color ?? 'var(--celeste)'}`,
                   opacity: c.activa ? 1 : 0.55,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color ?? 'var(--green)', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color ?? 'var(--celeste)', display: 'inline-block', flexShrink: 0 }} />
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.nombre}
                     </span>
@@ -399,19 +468,16 @@ export default function ConfiguracionComplejo() {
           </Section>
         )}
 
-        {tab === 'cobros' && (
-          <Section title="Cobros & Mercado Pago" icon={<CreditCard size={15} />} iconColor="var(--blue)">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 11, background: 'rgba(0,230,118,0.07)', border: '1px solid rgba(0,230,118,0.25)' }}>
-              <ShieldCheck size={18} color="var(--green)" style={{ flexShrink: 0 }} />
-              <div>
-                <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>Mercado Pago Integrado</p>
-                <p style={{ fontSize: '0.72rem', color: 'var(--green)', marginTop: 1 }}>Webhooks & cobros automáticos activos</p>
-              </div>
-              <span className="badge badge-available" style={{ marginLeft: 'auto', flexShrink: 0 }}>ONLINE</span>
-            </div>
+        {tab === 'disponibilidad' && (
+          <Section title="Disponibilidad horaria" icon={<Clock size={15} />} iconColor="var(--blue)">
+            <DisponibilidadHoraria />
+          </Section>
+        )}
 
+        {tab === 'cobros' && (
+          <Section title="Cobros" icon={<CreditCard size={15} />} iconColor="var(--blue)">
             <div className="form-group">
-              <label className="form-label">Alias Mercado Pago</label>
+              <label className="form-label">Alias para transferencias</label>
               <input
                 type="text"
                 value={pagos.alias ?? ''}
@@ -432,6 +498,37 @@ export default function ConfiguracionComplejo() {
               />
             </div>
 
+            <div className="form-group">
+              <label className="form-label">Titular de la cuenta</label>
+              <input
+                type="text"
+                value={pagos.titular ?? ''}
+                onChange={(e) => updatePagos({ titular: e.target.value })}
+                className="form-input"
+                placeholder="A nombre de quién figura el alias"
+              />
+              <p className="form-hint">
+                El bot lo dicta junto con el alias y el CBU. Sin esto, el que transfiere no tiene
+                cómo comprobar que le está mandando la plata a ustedes.
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Si el cliente cancela, la seña…</label>
+              <select
+                value={pagos.politicaSena ?? 'credito'}
+                onChange={(e) => updatePagos({ politicaSena: e.target.value })}
+                className="form-input"
+              >
+                <option value="credito">Queda como crédito a favor</option>
+                <option value="no_reembolsable">No se reintegra</option>
+              </select>
+              <p className="form-hint">
+                Es lo único que el bot va a decir sobre la plata de un turno cancelado. Nunca
+                promete una devolución: si el cliente insiste, te pasa la conversación.
+              </p>
+            </div>
+
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
               <Zap size={14} color="var(--text-secondary)" style={{ flexShrink: 0, marginTop: 2 }} />
               <span><strong style={{ color: 'var(--text-primary)' }}>OCR / Visión IA:</strong> El bot lee capturas de pago y verifica CBU + monto en segundos.</span>
@@ -439,7 +536,18 @@ export default function ConfiguracionComplejo() {
           </Section>
         )}
 
+        {tab === 'equipo' && (
+          <Section title="Usuarios y Permisos" icon={<Users size={15} />} iconColor="var(--blue)">
+            <UsuariosYPermisos />
+          </Section>
+        )}
+
         {tab === 'bot' && (
+          <>
+          <Section title="Clave de conexión del bot" icon={<KeyRound size={15} />} iconColor="var(--purple)">
+            <ClaveBot />
+          </Section>
+
           <Section title="Bot IA & Notificaciones" icon={<Bot size={15} />} iconColor="var(--purple)">
             <ToggleRow
               label="WhatsApp Bot Activo"
@@ -475,7 +583,40 @@ export default function ConfiguracionComplejo() {
               value={integraciones.ocrComprobantes}
               onChange={(v) => updateIntegracion('ocrComprobantes', v)}
             />
+            <div style={{ height: 1, background: 'var(--border-dim)' }} />
+            {/* El compromiso está declarado en la etiqueta a propósito: prender
+                esto le da al dueño el control del comprobante y le saca al
+                cliente la respuesta inmediata. Las dos cosas son ciertas. */}
+            <ToggleRow
+              label="Revisar cada comprobante antes de confirmar"
+              sub="Más seguro contra capturas falsas, pero el cliente espera tu ok en vez de tener el turno al instante"
+              value={integraciones.exigirValidacionManual}
+              onChange={(v) => updateIntegracion('exigirValidacionManual', v)}
+            />
+            <div style={{ height: 1, background: 'var(--border-dim)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 0', flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Máximo de turnos abiertos por teléfono
+                </p>
+                <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                  Frena al que se reserva media grilla y después no confirma ninguno.
+                </p>
+              </div>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={integraciones.maxTurnosActivosPorTelefono ?? 2}
+                onChange={(e) =>
+                  updateIntegracion('maxTurnosActivosPorTelefono', Number(e.target.value) || 1)
+                }
+                className="form-input num"
+                style={{ width: 90, flexShrink: 0 }}
+              />
+            </div>
           </Section>
+          </>
         )}
       </form>
 

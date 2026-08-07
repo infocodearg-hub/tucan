@@ -12,7 +12,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Repeat, CheckCircle2, Plus, Phone, User, DollarSign, X,
-  Trash2, Pencil, AlertCircle,
+  Trash2, Pencil, AlertCircle, Search,
 } from 'lucide-react';
 import {
   useTurnosFijos,
@@ -22,6 +22,7 @@ import {
   useToast,
 } from '../store';
 import { useConfirm } from './ConfirmDialog';
+import { usePuede } from '../auth/AuthProvider';
 import CustomSelect from './CustomSelect';
 import { DIAS_SEMANA, monthKey, occurrencesInMonth, todayISO } from '../lib/date';
 import { precioMensualFijo } from '../lib/pricing';
@@ -48,7 +49,7 @@ function EstadoBadge({ estado }) {
   const label = ESTADO_MES_LABEL[estado] ?? '—';
   const variant = ESTADO_MES_VARIANT[estado] ?? 'sin_sena';
   const styles = {
-    pagado:   { bg: 'rgba(0,230,118,0.1)',  border: 'rgba(0,230,118,0.3)',  color: 'var(--green)' },
+    pagado:   { bg: 'rgb(from var(--green) r g b / 0.1)',  border: 'rgb(from var(--green) r g b / 0.3)',  color: 'var(--green)' },
     senado:   { bg: 'rgba(255,179,0,0.1)',  border: 'rgba(255,179,0,0.3)',  color: 'var(--amber)' },
     bloqueado:{ bg: 'rgba(255,79,79,0.1)',  border: 'rgba(255,79,79,0.3)',  color: 'var(--red)'   },
     sin_sena: { bg: 'rgba(140,140,140,0.1)',border: 'rgba(140,140,140,0.2)',color: 'var(--text-muted)'},
@@ -78,6 +79,9 @@ export default function TurnosFijos() {
   const config        = useConfig();
   const tfActions     = useTurnoFijoActions();
   const toast         = useToast();
+  // La policy de la base ya rechaza el DELETE sin este permiso: acá se esconde
+  // el botón para no ofrecer algo que va a fallar.
+  const puedeEliminar = usePuede('eliminar_registros');
   const { confirm, ConfirmDialogMount } = useConfirm();
 
   const mesActual     = monthKey(todayISO());
@@ -85,6 +89,7 @@ export default function TurnosFijos() {
 
   // ─── Estado local del modal de alta/edición ─────────────────────────────
   // modalTf: null (cerrado) | 'new' (alta) | TurnoFijo completo (edición)
+  const [search,       setSearch]      = useState('');
   const [modalTf,      setModalTf]     = useState(null);
   const [teamName,    setTeamName]    = useState('');
   const [captain,     setCaptain]     = useState('');
@@ -100,6 +105,21 @@ export default function TurnosFijos() {
     () => canchas.map((c) => ({ value: c.id, label: c.nombre })),
     [canchas]
   );
+
+  // ─── Buscador (equipo, capitán, teléfono o cancha) ──────────────────────
+  const turnosFiltrados = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return turnosFijos;
+    return turnosFijos.filter((tf) => {
+      const cancha = canchas.find((c) => c.id === tf.canchaId);
+      return (
+        tf.equipoNombre?.toLowerCase().includes(q) ||
+        tf.capitanNombre?.toLowerCase().includes(q) ||
+        tf.telefono?.includes(q) ||
+        cancha?.nombre?.toLowerCase().includes(q)
+      );
+    });
+  }, [turnosFijos, canchas, search]);
 
   // ─── Derivar precio mensual para cada turno ──────────────────────────────
   function precioParaTf(tf) {
@@ -230,6 +250,21 @@ export default function TurnosFijos() {
         ))}
       </div>
 
+      {/* ─── Buscador ─── */}
+      {turnosFijos.length > 0 && (
+        <div style={{ position: 'relative', maxWidth: 340 }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input
+            type="text"
+            placeholder="Buscar equipo, capitán, teléfono o cancha..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="form-input"
+            style={{ width: '100%', padding: '8px 12px 8px 36px' }}
+          />
+        </div>
+      )}
+
       {/* ─── Empty state ─── */}
       {turnosFijos.length === 0 && (
         <div style={{
@@ -246,9 +281,20 @@ export default function TurnosFijos() {
         </div>
       )}
 
+      {turnosFijos.length > 0 && turnosFiltrados.length === 0 && (
+        <div style={{
+          padding: '32px 24px', textAlign: 'center',
+          borderRadius: 14, background: 'var(--bg-card)', border: '1px dashed var(--border-mid)',
+        }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Nada coincide con "{search}".
+          </p>
+        </div>
+      )}
+
       {/* ─── Cards ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-        {turnosFijos.map((tf) => {
+        {turnosFiltrados.map((tf) => {
           const estadoMes = tf.estadoPorMes?.[mesActual] ?? ESTADO_MES.pendiente;
           const ok        = estadoMes === ESTADO_MES.al_dia;
           const cancha    = canchas.find((c) => c.id === tf.canchaId);
@@ -273,13 +319,15 @@ export default function TurnosFijos() {
                 >
                   <Pencil size={13} />
                 </button>
-                <button
-                  onClick={() => handleDelete(tf)}
-                  aria-label={`Eliminar turno fijo de ${tf.equipoNombre}`}
-                  className="row-icon-btn danger"
-                >
-                  <Trash2 size={13} />
-                </button>
+                {puedeEliminar && (
+                  <button
+                    onClick={() => handleDelete(tf)}
+                    aria-label={`Eliminar turno fijo de ${tf.equipoNombre}`}
+                    className="row-icon-btn danger"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
 
               {/* Top row */}
@@ -307,7 +355,7 @@ export default function TurnosFijos() {
               {/* Capitán + teléfono */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, fontSize: '0.8rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <User size={13} color="var(--green)" /> {tf.capitanNombre ?? '—'}
+                  <User size={13} color="var(--celeste)" /> {tf.capitanNombre ?? '—'}
                 </span>
                 {tf.telefono && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
