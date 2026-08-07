@@ -228,7 +228,7 @@ export default function ConfiguracionComplejo() {
       </div>
 
       {/* ─── Tabs ─── */}
-      <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
+      <div className="tab-switcher" style={{ alignSelf: 'flex-start', overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
         {TABS.map((t) => (
           <button
             key={t.id}

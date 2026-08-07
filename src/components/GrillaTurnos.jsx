@@ -12,8 +12,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import {
-  Plus, Bot, CheckCircle2, DollarSign,
-  Clock, Zap, ShoppingBag, Sparkles, Sun, Moon,
+  Plus, DollarSign, Clock, Zap, Sparkles, Sun, Moon, Eye, Utensils,
 } from 'lucide-react';
 import {
   useCanchasActivas,
@@ -26,34 +25,62 @@ import { minutosPara, rangeDays, startOfWeek, dayOfWeek, DIAS_SEMANA } from '../
 import { horasHabilitadasEnFecha, horasUnion } from '../lib/disponibilidad';
 import DateNav from './DateNav';
 
+// ─── Medidas de la grilla ─────────────────────────────────────────────────────
+// Espejo en JS de las custom properties `--slot-col-*` de index.css: el JS no
+// puede leer variables CSS, y necesita los números para calcular el ancho
+// mínimo del scrollport. Si cambiás uno, cambiá el otro.
+const COL_HORA = 76;
+const COL_DIA = 200;
+const COL_SEMANA = 116;
+const GAP = 8;
+const PAD_X = 28; // padding lateral del wrapper interno (14px × 2)
+
+/** Ancho real que necesita la grilla del día; abajo de esto tiene que scrollear. */
+const anchoMinimoDia = (canchas) => COL_HORA + canchas * COL_DIA + canchas * GAP + PAD_X;
+/** Ídem para la semana: 7 columnas fijas. */
+const anchoMinimoSemana = () => COL_HORA + 7 * COL_SEMANA + 7 * GAP + PAD_X;
+
+/**
+ * Fondo de la celda de hora. Tiene que ser OPACO (color-mix contra la
+ * superficie, no un rgba translúcido): la columna queda sticky mientras el
+ * resto scrollea, y con transparencia se vería pasar el contenido por abajo.
+ */
+const estiloCeldaHora = (isNight) => {
+  const tinte = isNight ? 'var(--cyan)' : 'var(--amber)';
+  return {
+    background: `color-mix(in srgb, ${tinte} 7%, var(--color-surface-1))`,
+    border: `1px solid color-mix(in srgb, ${tinte} 22%, var(--color-surface-1))`,
+  };
+};
+
 // ─── Status Config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   // Reservado desde la web o el bot y todavía sin confirmar. Se pinta apagado y
   // con borde punteado a propósito: es el único estado que puede desaparecer
   // solo, y de lejos tiene que leerse como "esto todavía no es tuyo".
   pending: {
-    badgeClass: 'badge-pending', label: 'Sin confirmar',
+    badgeClass: 'badge-pending', label: 'Sin confirmar', labelCorto: 'S/C',
     cardBorder: 'var(--color-border-strong)', cardBg: 'transparent',
     cardBorderStyle: 'dashed',
     barColor: 'var(--color-border-strong)', paidPercent: 0,
   },
   partial: {
-    badgeClass: 'badge-partial', label: 'Señado',
+    badgeClass: 'badge-partial', label: 'Señado', labelCorto: 'Señado',
     cardBorder: 'rgba(255,179,0,0.4)', cardBg: 'rgba(255,179,0,0.04)',
     barColor: 'var(--amber)', paidPercent: 50,
   },
   paid: {
-    badgeClass: 'badge-paid', label: 'Pagado 100%',
+    badgeClass: 'badge-paid', label: 'Pagado 100%', labelCorto: 'Pagado',
     cardBorder: 'rgba(0,176,255,0.4)', cardBg: 'rgba(0,176,255,0.04)',
     barColor: 'var(--blue)', paidPercent: 100,
   },
   fixed: {
-    badgeClass: 'badge-fixed', label: 'Turno Fijo',
+    badgeClass: 'badge-fixed', label: 'Turno Fijo', labelCorto: 'Fijo',
     cardBorder: 'rgba(185,136,252,0.4)', cardBg: 'rgba(185,136,252,0.04)',
     barColor: 'var(--purple)', paidPercent: 100,
   },
   blocked: {
-    badgeClass: 'badge-blocked', label: 'Bloqueado',
+    badgeClass: 'badge-blocked', label: 'Bloqueado', labelCorto: 'Bloq.',
     cardBorder: 'rgba(255,79,79,0.35)', cardBg: 'rgba(255,79,79,0.04)',
     barColor: 'var(--red)', paidPercent: 0,
   },
@@ -71,15 +98,17 @@ function KpiCard({ label, value, sub, subColor = 'var(--celeste)', icon, accent 
 
   return (
     <div className="kpi-card">
+      {/* .kpi-label / .kpi-sub reservan su alto aunque el texto ocupe menos:
+          así las 4 cifras quedan alineadas en la misma horizontal. */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <p className="label-caps truncate-2">{label}</p>
+        <p className="label-caps kpi-label">{label}</p>
         <h4
           className="font-heading num truncate-1"
           style={{ fontSize: 'clamp(1.25rem, 4vw, 1.65rem)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.05 }}
         >
           {value}
         </h4>
-        <p className="truncate-2" style={{ fontSize: '0.72rem', color: subColor, fontWeight: 600, lineHeight: 1.35 }}>
+        <p className="kpi-sub" style={{ fontSize: '0.72rem', color: subColor, fontWeight: 600, lineHeight: 1.35 }}>
           {sub}
         </p>
       </div>
@@ -101,17 +130,17 @@ function FreeSlot({ cancha, slotTime, isNight, onClick }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         <div style={{
-          width: 28, height: 28, borderRadius: 8,
+          width: 24, height: 24, borderRadius: 7,
           background: 'var(--bg-card-hover)', border: '1px dashed var(--border-mid)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-          <Plus size={14} color="var(--text-faint)" />
+          <Plus size={13} color="var(--text-faint)" />
         </div>
         <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <p className="truncate-1" style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Disponible
           </p>
-          <p className="num" style={{ fontSize: '0.7rem', color: 'var(--text-faint)', marginTop: 1 }}>
+          <p className="num truncate-1" style={{ fontSize: '0.7rem', color: 'var(--text-faint)', marginTop: 1 }}>
             {formatARS(price)}
           </p>
         </div>
@@ -123,104 +152,106 @@ function FreeSlot({ cancha, slotTime, isNight, onClick }) {
 // ─── Disabled Slot (vista Semana: hora no habilitada ESE día puntual) ─────────
 function DisabledSlot() {
   return (
-    <div
-      className="slot-free"
-      style={{ opacity: 0.35, cursor: 'default', pointerEvents: 'none' }}
-      title="No disponible este día"
-    >
-      <p style={{ fontSize: '0.68rem', color: 'var(--text-faint)', textAlign: 'center', width: '100%' }}>—</p>
+    <div className="slot-disabled" title="No disponible este día">
+      <p style={{ fontSize: '0.68rem', color: 'var(--text-faint)' }}>—</p>
     </div>
   );
 }
 
 // ─── Booked Slot ──────────────────────────────────────────────────────────────
-function BookedSlot({ booking, onClick }) {
-  const cfg     = STATUS_CONFIG[booking.status] || STATUS_CONFIG.partial;
-  const balance = (booking.totalPrice || 0) - (booking.depositPaid || 0);
+/**
+ * Tres líneas de alto fijo: quién · cuánto pagó (barra) · qué falta.
+ *
+ * La clave para que no se rompa como antes no es mostrar menos, es que cada
+ * línea tenga una sola cosa elástica: el texto de plata se trunca con
+ * ellipsis y todo lo demás lleva `flex-shrink: 0`. Antes competían cuatro
+ * elementos elásticos en una fila de 72px útiles y se pisaban entre sí.
+ *
+ * `compact` = columna angosta (vista semana): el estado va como punto de
+ * color en vez de badge, y los importes en formato corto ("$18 mil").
+ */
+function BookedSlot({ booking, onClick, compact = false }) {
+  const cfg = STATUS_CONFIG[booking.status] || STATUS_CONFIG.partial;
   const minutosRestantes = minutosPara(booking.expiraAt);
+  const saldo = (booking.totalPrice || 0) - (booking.depositPaid || 0);
+  const plata = compact ? formatARSCompact : formatARS;
+
+  // Lo que no entra en la card no se pierde: se cuenta en el tooltip.
+  const detalle = [
+    booking.clientName,
+    cfg.label,
+    booking.channel === 'bot_ai' ? 'Reservó el bot' : null,
+    booking.senaSinValidar ? 'Seña sin validar' : null,
+    booking.cantinaExtras?.length > 0 ? `Cantina: ${booking.cantinaExtras.length}` : null,
+    booking.status === 'pending' && minutosRestantes != null
+      ? (minutosRestantes > 0 ? `Se libera en ${minutosRestantes} min` : 'Venciendo…')
+      : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div
       className="slot-booked"
       onClick={onClick}
       style={{ borderColor: cfg.cardBorder, background: cfg.cardBg, borderStyle: cfg.cardBorderStyle }}
-      title={
-        booking.status === 'pending'
-          ? `${booking.clientName} — Sin confirmar${minutosRestantes != null ? `, se libera en ${minutosRestantes} min` : ''}`
-          : `${booking.clientName} — Click para ver detalles`
-      }
+      title={detalle}
     >
-      {/* Top: Name + Badges */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-          <span className="font-heading" style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {booking.clientName}
-          </span>
-          {booking.channel === 'bot_ai' && (
-            <span style={{
-              fontSize: '0.6rem', padding: '2px 6px', borderRadius: 6,
-              background: 'rgb(from var(--green) r g b / 0.15)', border: '1px solid rgb(from var(--green) r g b / 0.3)',
-              color: 'var(--green)', fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3,
-            }}>
-              <Bot size={9} />IA
-            </span>
-          )}
-        </div>
-        <span className={`badge ${cfg.badgeClass}`} style={{ fontSize: '0.62rem', padding: '2px 7px', flexShrink: 0 }}>
-          {cfg.label}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        {compact && (
+          <span className="slot-status-dot" style={{ background: cfg.barColor }} />
+        )}
+        <span
+          className="font-heading truncate-1"
+          style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)', flex: 1, minWidth: 0 }}
+        >
+          {booking.clientName}
         </span>
+        {!compact && (
+          <span className={`badge ${cfg.badgeClass}`} style={{ fontSize: '0.62rem', padding: '2px 7px' }}>
+            {cfg.label}
+          </span>
+        )}
       </div>
 
-      {/* Payment bar */}
       <div className="payment-bar-track">
         <div className="payment-bar-fill" style={{ width: `${cfg.paidPercent}%`, background: cfg.barColor }} />
       </div>
 
-      {/* Bottom: Finance */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          {/* En un turno sin confirmar no hay plata que mostrar: lo único que
-              importa es cuánto le queda antes de liberarse. */}
-          {booking.status === 'pending' ? (
-            <span
-              className="num truncate-1"
-              style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-faint)' }}
-            >
-              <Clock size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
-              {minutosRestantes == null
-                ? 'Esperando confirmación'
-                : minutosRestantes > 0
-                  ? `Se libera en ${minutosRestantes} min`
-                  : 'Venciendo…'}
-            </span>
-          ) : (
-          <>
-          <span className="num" style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-            {formatARS(booking.depositPaid)}
+      <div className="slot-finance">
+        {/* Un turno sin confirmar no tiene plata que mostrar: lo único que
+            importa es cuánto le queda antes de liberarse solo. */}
+        {booking.status === 'pending' ? (
+          <span className="num truncate-1" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-faint)' }}>
+            {minutosRestantes == null
+              ? 'Sin confirmar'
+              : minutosRestantes > 0
+                ? `Vence en ${minutosRestantes} min`
+                : 'Venciendo…'}
           </span>
-          {balance > 0 ? (
-            <span className="num" style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--amber)' }}>
-              · Resta {formatARS(balance)}
-            </span>
-          ) : (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.7rem', fontWeight: 800, color: 'var(--green)' }}>
-              <CheckCircle2 size={11} /> OK
-            </span>
-          )}
-          </>
-          )}
-        </div>
-        {booking.senaSinValidar && (
+        ) : saldo > 0 ? (
+          <span className="num truncate-1" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            {plata(booking.depositPaid)}
+            {' · '}
+            <span style={{ color: 'var(--amber)', fontWeight: 800 }}>Resta {plata(saldo)}</span>
+          </span>
+        ) : (
           <span
-            title="Seña declarada por WhatsApp — falta revisar el comprobante"
-            style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: '0.66rem', fontWeight: 800, color: 'var(--color-partial-500)', flexShrink: 0 }}
+            className="truncate-1"
+            style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--green)' }}
           >
-            <Clock size={10} /> sin validar
+            Pagado {plata(booking.depositPaid)}
           </span>
         )}
-        {booking.cantinaExtras?.length > 0 && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', fontWeight: 800, color: 'var(--volt)' }}>
-            <ShoppingBag size={10} />{booking.cantinaExtras.length}
+
+        {(booking.senaSinValidar || booking.cantinaExtras?.length > 0) && (
+          <span className="slot-finance-alertas">
+            {booking.senaSinValidar && (
+              <Eye size={11} color="var(--color-partial-500)" />
+            )}
+            {booking.cantinaExtras?.length > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: '0.66rem', fontWeight: 800, color: 'var(--volt)' }}>
+                <Utensils size={11} />{booking.cantinaExtras.length}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -293,7 +324,7 @@ export default function GrillaTurnos({ bookings, weekBookings = [], onOpenNuevoT
       </div>
 
       {/* ─── KPI Cards (datos reales del store) ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+      <div className="kpi-grid">
         <KpiCard
           label="Ocupación"
           value={`${kpis.ocupacionPct}%`}
@@ -388,43 +419,43 @@ export default function GrillaTurnos({ bookings, weekBookings = [], onOpenNuevoT
         background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
         borderRadius: 16, overflow: 'hidden',
       }}>
-        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+        <div className="turno-grid-scroll">
           <div style={{
-            minWidth: filteredCanchas.length > 1 ? 540 : 320,
+            minWidth: anchoMinimoDia(filteredCanchas.length),
             width: '100%',
             padding: '14px 14px 18px',
           }}>
 
             {/* Column Headers */}
-            <div style={{
-              display: 'grid',
-              gap: 8,
-              marginBottom: 10,
-              gridTemplateColumns: `76px repeat(${filteredCanchas.length}, minmax(200px, 1fr))`,
-            }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '8px', borderRadius: 10,
-                background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
-                fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase',
-                letterSpacing: '0.08em', color: 'var(--text-faint)',
-              }}>
+            <div
+              className="turno-grid-row"
+              style={{
+                marginBottom: 10,
+                gridTemplateColumns: `${COL_HORA}px repeat(${filteredCanchas.length}, minmax(var(--slot-col-dia), 1fr))`,
+              }}
+            >
+              <div
+                className="turno-col-head is-sticky"
+                style={{
+                  justifyContent: 'center',
+                  fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.08em', color: 'var(--text-faint)',
+                }}
+              >
                 Hora
               </div>
 
               {filteredCanchas.map((cancha) => (
-                <div key={cancha.id} style={{
-                  padding: '8px 12px', borderRadius: 12,
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-dim)',
-                  borderTop: `3px solid ${cancha.color ?? 'var(--celeste)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}>
-                  <div>
-                    <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+                <div
+                  key={cancha.id}
+                  className="turno-col-head"
+                  style={{ borderTop: `3px solid ${cancha.color ?? 'var(--celeste)'}` }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <h4 className="font-heading truncate-1" style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
                       {cancha.nombre}
                     </h4>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 1 }}>
+                    <p className="truncate-1" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 1 }}>
                       {cancha.subtitulo ?? cancha.deporte} · Noche: {formatARSCompact(cancha.precioNoche)}
                     </p>
                   </div>
@@ -433,7 +464,7 @@ export default function GrillaTurnos({ bookings, weekBookings = [], onOpenNuevoT
                     background: `rgb(from ${cancha.color ?? 'var(--celeste)'} r g b / 0.1)`,
                     border: `1px solid rgb(from ${cancha.color ?? 'var(--celeste)'} r g b / 0.27)`,
                     color: cancha.color ?? 'var(--celeste)',
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
                   }}>
                     Activa
                   </span>
@@ -450,27 +481,19 @@ export default function GrillaTurnos({ bookings, weekBookings = [], onOpenNuevoT
                 return (
                   <div
                     key={slotTime}
+                    className="turno-grid-row"
                     style={{
-                      display: 'grid',
-                      gap: 8,
-                      alignItems: 'center',
-                      gridTemplateColumns: `76px repeat(${filteredCanchas.length}, minmax(200px, 1fr))`,
+                      gridTemplateColumns: `${COL_HORA}px repeat(${filteredCanchas.length}, minmax(var(--slot-col-dia), 1fr))`,
                     }}
                   >
                     {/* Time Cell */}
-                    <div style={{
-                      padding: '8px 4px', borderRadius: 10,
-                      background: isNight ? 'rgba(0,229,255,0.04)' : 'rgba(255,179,0,0.04)',
-                      border: `1px solid ${isNight ? 'rgba(0,229,255,0.15)' : 'rgba(255,179,0,0.12)'}`,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-                    }}>
+                    <div className="turno-time-cell" style={estiloCeldaHora(isNight)}>
                       <span className="font-heading num" style={{ fontWeight: 900, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1 }}>
                         {slotTime}
                       </span>
                       <span style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: isNight ? 'var(--cyan)' : 'var(--amber)',
-                        background: isNight ? 'rgba(0,229,255,0.1)' : 'rgba(255,179,0,0.1)',
                         padding: '2px 5px', borderRadius: 4,
                       }}>
                         {isNight ? <Moon size={9} /> : <Sun size={9} />}
@@ -517,8 +540,8 @@ export default function GrillaTurnos({ bookings, weekBookings = [], onOpenNuevoT
         background: 'var(--bg-card)', border: '1px solid var(--border-dim)',
         borderRadius: 16, overflow: 'hidden',
       }}>
-        <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-          <div style={{ minWidth: 760, width: '100%', padding: '14px 14px 18px' }}>
+        <div className="turno-grid-scroll">
+          <div style={{ minWidth: anchoMinimoSemana(), width: '100%', padding: '14px 14px 18px' }}>
 
             {/* Subtítulo: qué cancha se está mirando */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -532,32 +555,40 @@ export default function GrillaTurnos({ bookings, weekBookings = [], onOpenNuevoT
             </div>
 
             {/* Column Headers: 7 días */}
-            <div style={{
-              display: 'grid', gap: 8, marginBottom: 10,
-              gridTemplateColumns: `76px repeat(7, minmax(96px, 1fr))`,
-            }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '8px', borderRadius: 10,
-                background: 'var(--bg-surface)', border: '1px solid var(--border-dim)',
-                fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase',
-                letterSpacing: '0.08em', color: 'var(--text-faint)',
-              }}>
+            <div
+              className="turno-grid-row"
+              style={{
+                marginBottom: 10,
+                gridTemplateColumns: `${COL_HORA}px repeat(7, minmax(var(--slot-col-semana), 1fr))`,
+              }}
+            >
+              <div
+                className="turno-col-head is-sticky"
+                style={{
+                  justifyContent: 'center',
+                  fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.08em', color: 'var(--text-faint)',
+                }}
+              >
                 Hora
               </div>
               {diasSemana.map((fecha) => {
                 const [, mm, dd] = fecha.split('-');
                 const esHoy = fecha === selectedDate;
                 return (
-                  <div key={fecha} style={{
-                    padding: '8px 6px', borderRadius: 12, textAlign: 'center',
-                    background: esHoy ? 'rgb(from var(--celeste) r g b / 0.08)' : 'var(--bg-surface)',
-                    border: `1px solid ${esHoy ? 'rgb(from var(--celeste) r g b / 0.35)' : 'var(--border-dim)'}`,
-                  }}>
+                  <div
+                    key={fecha}
+                    className="turno-col-head"
+                    style={{
+                      flexDirection: 'column', justifyContent: 'center', gap: 0, padding: '6px',
+                      background: esHoy ? 'rgb(from var(--celeste) r g b / 0.08)' : undefined,
+                      borderColor: esHoy ? 'rgb(from var(--celeste) r g b / 0.35)' : undefined,
+                    }}
+                  >
                     <h4 className="font-heading" style={{ fontWeight: 800, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                       {DIAS_SEMANA[dayOfWeek(fecha)].corto}
                     </h4>
-                    <p style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>{dd}/{mm}</p>
+                    <p className="num" style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>{dd}/{mm}</p>
                   </div>
                 );
               })}
@@ -572,24 +603,18 @@ export default function GrillaTurnos({ bookings, weekBookings = [], onOpenNuevoT
                 return (
                   <div
                     key={slotTime}
+                    className="turno-grid-row"
                     style={{
-                      display: 'grid', gap: 8, alignItems: 'center',
-                      gridTemplateColumns: `76px repeat(7, minmax(96px, 1fr))`,
+                      gridTemplateColumns: `${COL_HORA}px repeat(7, minmax(var(--slot-col-semana), 1fr))`,
                     }}
                   >
-                    <div style={{
-                      padding: '8px 4px', borderRadius: 10,
-                      background: isNight ? 'rgba(0,229,255,0.04)' : 'rgba(255,179,0,0.04)',
-                      border: `1px solid ${isNight ? 'rgba(0,229,255,0.15)' : 'rgba(255,179,0,0.12)'}`,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-                    }}>
+                    <div className="turno-time-cell" style={estiloCeldaHora(isNight)}>
                       <span className="font-heading num" style={{ fontWeight: 900, fontSize: '0.86rem', color: 'var(--text-primary)', lineHeight: 1 }}>
                         {slotTime}
                       </span>
                       <span style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: isNight ? 'var(--cyan)' : 'var(--amber)',
-                        background: isNight ? 'rgba(0,229,255,0.1)' : 'rgba(255,179,0,0.1)',
                         padding: '2px 5px', borderRadius: 4,
                       }}>
                         {isNight ? <Moon size={9} /> : <Sun size={9} />}
@@ -604,7 +629,7 @@ export default function GrillaTurnos({ bookings, weekBookings = [], onOpenNuevoT
                         (b) => b.canchaId === canchaSemana.id && b.date === fecha && b.time === slotTime
                       );
                       return booking ? (
-                        <BookedSlot key={fecha} booking={booking} onClick={() => onOpenBookingDetails(booking)} />
+                        <BookedSlot key={fecha} booking={booking} onClick={() => onOpenBookingDetails(booking)} compact />
                       ) : (
                         <FreeSlot
                           key={fecha}

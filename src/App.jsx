@@ -163,9 +163,16 @@ function AppInner({ onLogout }) {
   // cerrarlo. Se busca en la semana entera (no solo `bookings`, el día) para
   // que un turno abierto desde la vista Semana de la Grilla también se
   // relea en vivo — la semana siempre contiene al día seleccionado.
-  const liveBookingDetail = selectedBookingDetail
-    ? (bookingsWeek.find((b) => b.id === selectedBookingDetail.id) ?? selectedBookingDetail)
+  //
+  // El fallback al objeto guardado solo aplica si ese objeto es un turno de
+  // verdad: la campana abre un turno pasando apenas `{ id, fecha }`, y sin
+  // esta guarda el modal se montaría vacío durante el frame en que
+  // `bookingsWeek` todavía no trajo la fecha nueva.
+  const bookingDetailResuelto = selectedBookingDetail
+    ? bookingsWeek.find((b) => b.id === selectedBookingDetail.id)
     : null;
+  const liveBookingDetail =
+    bookingDetailResuelto ?? (selectedBookingDetail?.time ? selectedBookingDetail : null);
 
   // `fecha` llega SIEMPRE explícita desde GrillaTurnos (día o semana). En la
   // vista Semana puede no ser `selectedDate`: cambiar el día activo hace que
@@ -175,6 +182,15 @@ function AppInner({ onLogout }) {
     if (fecha !== selectedDate) setSelectedDate(fecha);
     setModalSlot({ canchaId, time });
     setIsNuevoTurnoOpen(true);
+  };
+
+  // Click en una notificación de la campana. Mueve la grilla al día del turno
+  // (puede ser de otra fecha) y deja la identidad marcada: `liveBookingDetail`
+  // lo resuelve contra el store cuando `bookingsWeek` ya lo contenga.
+  const handleAbrirTurnoDesdeNotificacion = (bookingId, fecha) => {
+    if (fecha && fecha !== selectedDate) setSelectedDate(fecha);
+    setActiveTab('grilla');
+    setSelectedBookingDetail({ id: bookingId, fecha });
   };
 
   // Convierte el objeto viejo que arma NuevoTurnoModal en acciones reales del
@@ -347,6 +363,7 @@ function AppInner({ onLogout }) {
         activeTab={tabActual}
         setActiveTab={setActiveTab}
         onLogout={onLogout}
+        onAbrirTurno={handleAbrirTurnoDesdeNotificacion}
       />
 
       {/* ─── Layout ─── */}
@@ -416,7 +433,7 @@ function AppInner({ onLogout }) {
       {/* ─── Detailed Booking Modal (Interactive Settle, Cantina, WA, Cancel, Edit) ─── */}
       <DetalleTurnoModal
         booking={liveBookingDetail}
-        isOpen={!!selectedBookingDetail}
+        isOpen={!!liveBookingDetail}
         onClose={() => setSelectedBookingDetail(null)}
         onSettleBooking={handleSettleBooking}
         onCancelBooking={handleCancelBooking}

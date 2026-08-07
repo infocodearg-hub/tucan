@@ -125,6 +125,16 @@
   --sidebar-w: 252px;
   --content-max: 1560px;
 
+  /* Grilla de turnos — el alto es EXACTO, no un mínimo: es lo único que hace
+     que todas las celdas de la grilla midan igual, ocupadas o libres.
+     Los anchos tienen un espejo en constantes JS dentro de GrillaTurnos.jsx
+     (el JS no lee custom properties); si cambiás uno, cambiá el otro. */
+  --slot-h: 78px;
+  --slot-col-dia: 200px;
+  --slot-col-semana: 116px;
+  --slot-col-hora: 76px;
+  --slot-gap: 8px;
+
   /* Escala de apilamiento — un solo lugar decide quién va arriba de quién */
   --z-sticky: 10;
   --z-sidebar: 20;
@@ -994,12 +1004,37 @@
 
   /* ── KPI ────────────────────────────────────────────────────────────── */
 
+  .kpi-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  /* Las tres líneas de la card reservan su alto aunque el texto ocupe menos,
+     así las cifras de las 4 KPIs quedan alineadas en la misma horizontal.
+     `.truncate-2` sola no alcanza: clampa a 2 líneas pero no las reserva. */
+  .kpi-label {
+    min-height: calc(2 * 1.2em);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .kpi-sub {
+    min-height: 1.35em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .kpi-card {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
     min-width: 0;
+    min-height: 96px;
     padding: 15px 16px;
     border-radius: var(--radius-lg);
     background: var(--color-surface-1);
@@ -1269,7 +1304,13 @@
     border-radius: 99px;
     text-transform: uppercase;
     letter-spacing: 0.045em;
+    /* nowrap + ellipsis: en una columna angosta el badge se recorta a sí mismo
+       en vez de empujar al nombre del cliente fuera de la card. */
     white-space: nowrap;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     border: 1px solid transparent;
     background: var(--color-surface-3);
     color: var(--color-text-secondary);
@@ -1322,15 +1363,86 @@
     color: var(--color-text-secondary);
   }
 
+  /* ── Grilla de turnos: scroll, filas y cabeceras ─────────────────────── */
+
+  /* El scrollport. Tiene que ser este y no un ancestro, porque `position:
+     sticky` de la columna de horas se resuelve contra el scrollport más
+     cercano. */
+  .turno-grid-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    /* En mobile la semana no entra nunca: que al menos cada día enganche. */
+    scroll-snap-type: x proximity;
+    /* La columna de horas es sticky sobre el borde izquierdo del scrollport,
+       así que sin este padding el snap deja la columna enganchada JUSTO
+       debajo de ella y el día queda tapado. */
+    scroll-padding-left: calc(var(--slot-col-hora) + var(--slot-gap));
+  }
+
+  /* `align-items: stretch` es lo que iguala el alto de la fila entera. El
+     grid-template-columns lo pone el JS porque depende de cuántas canchas hay. */
+  .turno-grid-row {
+    display: grid;
+    gap: var(--slot-gap);
+    align-items: stretch;
+  }
+
+  /* Columna de horas: queda anclada a la izquierda mientras el resto scrollea.
+     El fondo lo pone el JS (día/noche) y DEBE ser opaco, si no el contenido
+     de las celdas se ve pasar por abajo. */
+  .turno-time-cell {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    height: var(--slot-h);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .turno-col-head {
+    height: var(--slot-h);
+    padding: 8px 12px;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface-1);
+    border: 1px solid var(--color-border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .turno-col-head:not(.is-sticky) {
+    scroll-snap-align: start;
+  }
+
+  .turno-col-head.is-sticky {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+  }
+
   /* ── Slots de la grilla ─────────────────────────────────────────────── */
 
+  /* Alto EXACTO en los tres tipos de celda (libre, ocupada, deshabilitada):
+     con `min-height` cada card crecía según su propio texto y la grilla
+     quedaba dentada. */
   .slot-free {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    min-height: 62px;
-    padding: 10px 12px;
+    height: var(--slot-h);
+    min-width: 0;
+    overflow: hidden;
+    scroll-snap-align: start;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     background: transparent;
     border: 1px dashed var(--color-border-base);
@@ -1349,9 +1461,13 @@
   .slot-booked {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    min-height: 62px;
-    padding: 10px 12px;
+    justify-content: space-between;
+    gap: 6px;
+    height: var(--slot-h);
+    min-width: 0;
+    overflow: hidden;
+    scroll-snap-align: start;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     border: 1px solid var(--color-border-base);
     background: var(--color-surface-2);
@@ -1367,10 +1483,53 @@
     box-shadow: var(--shadow-e3);
   }
 
+  /* Hora no habilitada ese día puntual (solo vista semana). */
+  .slot-disabled {
+    height: var(--slot-h);
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--color-border-subtle);
+    scroll-snap-align: start;
+    opacity: 0.4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  /* En columnas angostas el estado se comunica con un punto de color en vez
+     del badge, que no entra sin comerse el nombre. */
+  .slot-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Última línea de la card: plata a la izquierda (se trunca), alertas a la
+     derecha (nunca se encogen). El `min-width: 0` es lo que habilita el
+     ellipsis del hijo: sin él un flex item no baja de su ancho de contenido
+     y empuja los íconos fuera de la card. */
+  .slot-finance {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .slot-finance-alertas {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
   /* Barra de progreso de pago */
   .payment-bar-track {
     width: 100%;
     height: 3px;
+    flex-shrink: 0;
     border-radius: 99px;
     background: rgb(255 255 255 / 0.08);
     overflow: hidden;
@@ -1496,6 +1655,45 @@
     overflow: hidden;
   }
 
+  /* Va DESPUÉS de .dropdown-menu a propósito: le pisa el `overflow: hidden`
+     porque la lista de notificaciones sí tiene que poder scrollear.
+
+     En mobile se ancla a la VIEWPORT y no al botón: anclado al botón con
+     `right: 0` y midiendo casi todo el ancho de pantalla, se desbordaba por
+     la izquierda. Con left/right fijos queda centrado y con el mismo margen
+     de los dos lados. */
+  .dropdown-notif {
+    position: fixed;
+    top: calc(var(--nav-h) + 6px);
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: min(70vh, 460px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0;
+  }
+
+  .dropdown-notif .dropdown-item {
+    border-radius: 0;
+    padding: 11px 14px;
+  }
+
+  /* Cabecera pegada arriba: con la lista scrolleando, sin esto el título se
+     va de vista al primer scroll. */
+  .dropdown-notif-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 11px 14px 9px;
+    background: var(--color-surface-3);
+    border-bottom: 1px solid var(--border-dim);
+  }
+
   .dropdown-item {
     display: flex;
     align-items: center;
@@ -1593,6 +1791,21 @@
 
 @media (min-width: 40rem) {
   /* ≥ 640px */
+  /* Con más ancho disponible las celdas de la grilla respiran un poco más.
+     Sigue siendo un alto exacto para todas. */
+  :root {
+    --slot-h: 84px;
+  }
+
+  /* Desde acá sí entra colgando del botón de la campana. */
+  .dropdown-notif {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: auto;
+    right: 0;
+    width: 370px;
+  }
+
   .app-main-content {
     padding-inline: 20px;
   }
@@ -1678,7 +1891,249 @@
 
 @media (min-width: 64rem) {
   /* ≥ 1024px */
+  :root {
+    --slot-col-dia: 220px;
+  }
+
   .app-main-content {
     padding: 28px 32px 48px;
+  }
+}
+
+/* ─── Reportes: charts de la tab General ──────────────────────────────────── */
+
+.reportes-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* mobile: 1 columna */
+  gap: 16px;
+  /* Un grid item arranca en `min-width: auto`, o sea que NO baja del ancho de
+     su contenido: sin esto un chart ancho estira la columna y desborda la
+     pantalla en mobile en vez de scrollear adentro de su card. */
+  min-width: 0;
+}
+
+.reportes-chart-card {
+  min-width: 0;
+  overflow: hidden;
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+}
+
+.chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  min-width: 0;
+}
+
+.chart-titulos {
+  min-width: 0;
+}
+
+.chart-titulo {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.chart-subtitulo {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.chart-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* El texto de la leyenda va en tinta neutra: el cuadradito de color ya carga
+   la identidad de la serie, y pintar también la palabra baja la legibilidad. */
+.chart-leyenda-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.chart-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* ── Plano cartesiano: eje Y + grilla de fondo + marcas ── */
+
+.chart-plano {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 190px;
+  min-width: 0;
+}
+
+.chart-eje-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-shrink: 0;
+  width: 2.2rem;
+  /* Media línea arriba y abajo: alinea cada número con SU línea de grilla,
+     que están centradas en los bordes de la banda. */
+  margin: -0.5em 0;
+}
+
+.chart-eje-tick {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  line-height: 1;
+}
+
+.chart-area {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.chart-grid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.chart-grid-linea {
+  height: 1px;
+  background: var(--border-dim);
+  opacity: 0.65;
+}
+
+/* La primera línea es la base del gráfico: se ve un poco más que las demás. */
+.chart-grid-linea:first-child {
+  opacity: 1;
+  background: var(--border-mid);
+}
+
+.chart-marcas {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.chart-columna {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+
+.chart-valor {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.chart-barra {
+  width: 100%;
+  max-width: 44px;
+  border-radius: 4px 4px 0 0;
+}
+
+.chart-barra-apilada {
+  width: 100%;
+  max-width: 44px;
+  display: flex;
+  flex-direction: column;
+  /* 2px de superficie entre segmentos: los separa sin dibujar un borde. */
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 4px 4px 0 0;
+}
+
+.chart-segmento:first-child {
+  border-radius: 4px 4px 0 0;
+}
+
+.chart-eje-x {
+  display: flex;
+  gap: 6px;
+  /* Deja libre el ancho del eje Y para que cada etiqueta caiga bajo su barra. */
+  padding-left: calc(2.2rem + 8px);
+  margin-top: 6px;
+}
+
+.chart-eje-x-label {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Las series temporales pueden tener muchas semanas: scrollean adentro de la
+   card en vez de estirarla. */
+.chart-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 4px;
+}
+
+.chart-scroll-inner {
+  min-width: 0;
+}
+
+@media (min-width: 43.75rem) {
+  /* ≥ 700px — siempre 2 columnas, nunca 3+ */
+  .reportes-charts-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .reportes-chart-card {
+    padding: 26px 24px;
+    border-radius: 18px;
+  }
+
+  .chart-titulo {
+    font-size: 1.25rem;
+  }
+
+  .chart-subtitulo {
+    font-size: 0.86rem;
+  }
+
+  .chart-plano {
+    height: 240px;
+  }
+
+  .chart-header {
+    margin-bottom: 24px;
   }
 }

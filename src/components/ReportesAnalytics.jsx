@@ -29,50 +29,123 @@ const TABS = [
 // el historial entero cada vez que se abre la pantalla.
 const RANGO_POR_DEFECTO_DIAS = 56;
 
+/**
+ * Escala "redonda" para el eje: sube el máximo hasta el próximo paso lindo
+ * (1/2/5 × potencia de 10) y devuelve las marcas.
+ *
+ * Sin esto los charts se dibujaban contra un 100% fijo: con ocupaciones reales
+ * del 20-30% todas las barras quedaban aplastadas contra el piso y el gráfico
+ * no decía nada. El eje rotulado es lo que hace honesto adaptar la escala.
+ */
+function escalaEje(maxValor, divisiones = 4) {
+  if (!(maxValor > 0)) return { max: 1, marcas: [0, 1] };
+  const bruto = maxValor / divisiones;
+  const magnitud = 10 ** Math.floor(Math.log10(bruto));
+  const normal = bruto / magnitud;
+  const escalon = normal <= 1 ? 1 : normal <= 2 ? 2 : normal <= 2.5 ? 2.5 : normal <= 5 ? 5 : 10;
+  // Todo lo que graficamos son porcentajes o conteos: un eje con marcas en
+  // 0,5 turnos no querría decir nada.
+  const paso = Math.max(1, Math.round(escalon * magnitud));
+  const max = Math.ceil(maxValor / paso) * paso;
+  const marcas = [];
+  for (let v = 0; v <= max; v += paso) marcas.push(v);
+  return { max, marcas };
+}
+
+/** Grilla de fondo + eje Y. Recesiva a propósito: los datos van adelante. */
+function PlanoCartesiano({ marcas, sufijo = '', children }) {
+  return (
+    <div className="chart-plano">
+      <div className="chart-eje-y">
+        {[...marcas].reverse().map((m) => (
+          <span key={m} className="num chart-eje-tick">{m}{sufijo}</span>
+        ))}
+      </div>
+      <div className="chart-area">
+        <div className="chart-grid" aria-hidden="true">
+          {marcas.map((m) => <div key={m} className="chart-grid-linea" />)}
+        </div>
+        <div className="chart-marcas">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Barras verticales por día de semana. Una sola serie, así que no lleva
+ * leyenda: el título ya dice qué se está midiendo.
+ */
+function BarrasPorDia({ datos, color, destacarAlto = false }) {
+  if (!datos.length) {
+    return <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Sin datos en este rango.</p>;
+  }
+  const { max, marcas } = escalaEje(Math.max(...datos.map((d) => d.pct)));
+
+  return (
+    <div>
+      <PlanoCartesiano marcas={marcas} sufijo="%">
+        {datos.map((d) => {
+          const alto = (d.pct / max) * 100;
+          const esAlto = destacarAlto && d.pct >= 70;
+          return (
+            <div key={d.dia} className="chart-columna" title={`${d.label}: ${d.pct}%`}>
+              <span className="num chart-valor">{d.pct}%</span>
+              <div
+                className="chart-barra"
+                style={{ height: `${Math.max(alto, 2)}%`, background: esAlto ? 'var(--green)' : color }}
+              />
+            </div>
+          );
+        })}
+      </PlanoCartesiano>
+      <div className="chart-eje-x">
+        {datos.map((d) => <span key={d.dia} className="chart-eje-x-label">{d.label}</span>)}
+      </div>
+    </div>
+  );
+}
+
 /** Barras apiladas por semana — Fijos/Ocasionales y Nuevos/Recurrentes comparten esta forma. */
 function BarraApiladaSemanal({ semanas, campoA, campoB, colorA, colorB }) {
   if (!semanas.length) {
     return <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin datos en este rango.</p>;
   }
-  const max = Math.max(1, ...semanas.map((s) => s[campoA] + s[campoB]));
+  const { max, marcas } = escalaEje(Math.max(...semanas.map((s) => s[campoA] + s[campoB])));
+  const etiquetaSemana = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'stretch', gap: 6, height: 170, overflowX: 'auto', paddingBottom: 4 }}>
-      {semanas.map((s) => {
-        const total = s[campoA] + s[campoB];
-        const pctA = (s[campoA] / max) * 100;
-        const pctB = (s[campoB] / max) * 100;
-        return (
-          <div key={s.semanaInicio} style={{ flex: '1 0 34px', minWidth: 34, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span className="num" style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--text-muted)' }}>{total || ''}</span>
-            <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-              {s[campoA] > 0 && (
-                <div style={{
-                  height: `${Math.max(pctA, 3)}%`, background: colorA, borderRadius: s[campoB] > 0 ? 0 : '4px 4px 0 0',
-                  display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 2,
-                }}>
-                  {pctA > 14 && (
-                    <span className="num" style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--on-accent)' }}>{s[campoA]}</span>
+    <div className="chart-scroll">
+      <div className="chart-scroll-inner" style={{ minWidth: semanas.length * 46 }}>
+        <PlanoCartesiano marcas={marcas}>
+          {semanas.map((s) => {
+            const total = s[campoA] + s[campoB];
+            return (
+              <div
+                key={s.semanaInicio}
+                className="chart-columna"
+                title={`Semana del ${etiquetaSemana(s.semanaInicio)} — ${total} en total`}
+              >
+                <span className="num chart-valor">{total || ''}</span>
+                {/* Apilada de abajo hacia arriba: campoA es la base. El gap de
+                    2px entre segmentos los separa sin necesidad de borde. */}
+                <div className="chart-barra-apilada" style={{ height: `${(total / max) * 100}%` }}>
+                  {s[campoB] > 0 && (
+                    <div className="chart-segmento" style={{ flex: s[campoB], background: colorB }} />
+                  )}
+                  {s[campoA] > 0 && (
+                    <div className="chart-segmento" style={{ flex: s[campoA], background: colorA }} />
                   )}
                 </div>
-              )}
-              {s[campoB] > 0 && (
-                <div style={{
-                  height: `${Math.max(pctB, 3)}%`, background: colorB, borderRadius: '4px 4px 0 0',
-                  display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 2,
-                }}>
-                  {pctB > 14 && (
-                    <span className="num" style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-primary)' }}>{s[campoB]}</span>
-                  )}
-                </div>
-              )}
-            </div>
-            <span style={{ fontSize: '0.6rem', color: 'var(--text-faint)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              {s.semanaInicio.slice(8, 10)}/{s.semanaInicio.slice(5, 7)}
-            </span>
-          </div>
-        );
-      })}
+              </div>
+            );
+          })}
+        </PlanoCartesiano>
+        <div className="chart-eje-x">
+          {semanas.map((s) => (
+            <span key={s.semanaInicio} className="chart-eje-x-label">{etiquetaSemana(s.semanaInicio)}</span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -172,7 +245,7 @@ export default function ReportesAnalytics() {
       </div>
 
       {/* Tabs */}
-      <div className="tab-switcher" style={{ overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
+      <div className="tab-switcher" style={{ alignSelf: 'flex-start', overflowX: 'auto', maxWidth: '100%', minWidth: 0 }}>
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -223,82 +296,47 @@ export default function ReportesAnalytics() {
         </div>
       </div>
 
-      {/* Charts Row — 2×2 grande, como en la referencia: 2 arriba + 2 abajo
-          en desktop (~900px+), 1 columna en mobile. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: 16 }}>
+      {/* Charts Row — SIEMPRE 2 por fila en desktop/tablet (≥700px), 1 columna
+          en mobile. Ver .reportes-charts-grid en index.css. */}
+      <div className="reportes-charts-grid">
 
         {/* Ocupación por día */}
-        <div style={{ padding: '22px', borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border-dim)', minHeight: 260 }}>
-          <div style={{ marginBottom: 20 }}>
-            <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem' }}>Tasa de ocupación por día</h3>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
-              {formatShortDate(rangoDesde)} — {formatShortDate(rangoHasta)}
-            </p>
+        <div className="reportes-chart-card">
+          <div className="chart-header">
+            <div className="chart-titulos">
+              <h3 className="font-heading chart-titulo">Tasa de ocupación por día</h3>
+              <p className="chart-subtitulo">
+                {formatShortDate(rangoDesde)} — {formatShortDate(rangoHasta)}
+              </p>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, height: 150 }}>
-            {ocupacionPorDia.map((d) => (
-              <div key={d.dia} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <span className="num" style={{ fontSize: '0.68rem', fontWeight: 800, color: d.pct >= 70 ? 'var(--green)' : 'var(--text-muted)' }}>
-                  {d.pct}%
-                </span>
-                {/* Envoltorio con altura definida (flex:1 dentro de un padre de 150px) —
-                    sin esto, el % de altura de la barra no tiene contra qué resolverse
-                    y siempre queda en el mínimo de 8px. */}
-                <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
-                  <div style={{
-                    width: '100%', borderRadius: '6px 6px 0 0', overflow: 'hidden',
-                    height: `${Math.max(d.pct, 3)}%`,
-                    background: d.pct >= 70
-                      ? 'linear-gradient(to top, var(--green), var(--green-glow))'
-                      : d.pct >= 40
-                        ? 'var(--blue)'
-                        : 'var(--border-mid)',
-                    boxShadow: d.pct >= 70 ? '0 0 12px rgb(from var(--green) r g b / 0.3)' : 'none'
-                  }} />
-                </div>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>{d.label}</span>
-              </div>
-            ))}
-          </div>
+          <BarrasPorDia datos={ocupacionPorDia} color="var(--celeste)" destacarAlto />
         </div>
 
         {/* Distribución de turnos por día */}
-        <div style={{ padding: '22px', borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border-dim)', minHeight: 260 }}>
-          <div style={{ marginBottom: 20 }}>
-            <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem' }}>Porcentaje de turnos por día</h3>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>Cómo se distribuyen los turnos entre los días de la semana</p>
+        <div className="reportes-chart-card">
+          <div className="chart-header">
+            <div className="chart-titulos">
+              <h3 className="font-heading chart-titulo">Porcentaje de turnos por día</h3>
+              <p className="chart-subtitulo">Cómo se distribuyen los turnos entre los días de la semana</p>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, height: 150 }}>
-            {distribucionPorDia.map((d) => (
-              <div key={d.dia} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <span className="num" style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)' }}>
-                  {d.pct}%
-                </span>
-                <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
-                  <div style={{
-                    width: '100%', borderRadius: '6px 6px 0 0', overflow: 'hidden',
-                    height: `${Math.max(d.pct, 3)}%`, background: 'var(--blue)',
-                  }} />
-                </div>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>{d.label}</span>
-              </div>
-            ))}
-          </div>
+          <BarrasPorDia datos={distribucionPorDia} color="var(--blue)" />
         </div>
 
         {/* Fijos vs ocasionales */}
-        <div style={{ padding: '22px', borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border-dim)', minHeight: 260 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem' }}>Fijos vs ocasionales</h3>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>Serie temporal de turnos del período</p>
+        <div className="reportes-chart-card">
+          <div className="chart-header">
+            <div className="chart-titulos">
+              <h3 className="font-heading chart-titulo">Fijos vs ocasionales</h3>
+              <p className="chart-subtitulo">Serie temporal de turnos del período</p>
             </div>
-            <div style={{ display: 'flex', gap: 10, fontSize: '0.68rem', fontWeight: 700 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--purple)' }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--purple)' }} /> Fijos
+            <div className="chart-leyenda">
+              <span className="chart-leyenda-item">
+                <span className="chart-swatch" style={{ background: 'var(--purple)' }} /> Fijos
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)' }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--border-mid)' }} /> Ocasionales
+              <span className="chart-leyenda-item">
+                <span className="chart-swatch" style={{ background: 'var(--border-mid)' }} /> Ocasionales
               </span>
             </div>
           </div>
@@ -310,18 +348,18 @@ export default function ReportesAnalytics() {
         </div>
 
         {/* Nuevos vs recurrentes */}
-        <div style={{ padding: '22px', borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border-dim)', minHeight: 260 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <h3 className="font-heading" style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem' }}>Clientes nuevos vs recurrentes</h3>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>Clientes únicos por período dentro del rango seleccionado</p>
+        <div className="reportes-chart-card">
+          <div className="chart-header">
+            <div className="chart-titulos">
+              <h3 className="font-heading chart-titulo">Clientes nuevos vs recurrentes</h3>
+              <p className="chart-subtitulo">Clientes únicos por período dentro del rango seleccionado</p>
             </div>
-            <div style={{ display: 'flex', gap: 10, fontSize: '0.68rem', fontWeight: 700 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--green)' }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--green)' }} /> Nuevos
+            <div className="chart-leyenda">
+              <span className="chart-leyenda-item">
+                <span className="chart-swatch" style={{ background: 'var(--green)' }} /> Nuevos
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--blue)' }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--blue)' }} /> Recurrentes
+              <span className="chart-leyenda-item">
+                <span className="chart-swatch" style={{ background: 'var(--blue)' }} /> Recurrentes
               </span>
             </div>
           </div>

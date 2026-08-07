@@ -12,21 +12,32 @@ import {
   BarChart3,
   Clock,
   MessageSquare,
-  DollarSign,
-  AlertTriangle,
+  Eye,
+  Wand2,
+  Check,
+  CheckCheck,
   Sun,
   Moon,
 } from 'lucide-react';
 import { useConfig, useCanchasActivas, useUIActions } from '../store';
 import { useAuth } from '../auth/AuthProvider';
 import { useTheme } from '../theme/ThemeProvider';
+import { useNotificaciones } from '../hooks/useNotificaciones';
 import { nowTimeWithSeconds } from '../lib/date';
 import logoSetygol from '../assets/logo-setygol.png';
+
+/** `iconKey` de lib/notificaciones.js → el componente que lo dibuja. */
+const ICONO_NOTIF = {
+  eye: Eye,
+  clock: Clock,
+  wand: Wand2,
+  message: MessageSquare,
+};
 
 /** Manual de uso publicado — es lo que se le manda al cliente junto al link. */
 const MANUAL_URL = 'https://claude.ai/code/artifact/ea2c6de4-747d-4b2e-a78c-0c0275f626ea';
 
-export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, setActiveTab, onLogout }) {
+export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, setActiveTab, onLogout, onAbrirTurno }) {
   const auth        = useAuth();
   const config      = useConfig();
   const canchas     = useCanchasActivas();
@@ -55,12 +66,10 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const notifications = [
-    { id: 1, icon: MessageSquare, text: 'Nuevo turno agendado por cliente', sub: 'Marcos Benítez · Cancha 1 19:00 hs', read: false, color: 'var(--celeste)' },
-    { id: 2, icon: DollarSign, text: 'Seña recibida $13.000', sub: 'Mercado Pago · Cancha 1 20:00 hs', read: false, color: 'var(--blue)' },
-    { id: 3, icon: AlertTriangle, text: 'Turno sin seña a las 22:00 hs', sub: 'Santiago Ledesma · Cancha 2', read: true, color: 'var(--amber)' },
-  ];
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const { items: notificaciones, unreadCount, marcarTodasLeidas, abrir } = useNotificaciones({
+    onAbrirTurno,
+    onIrATab: navSetTab,
+  });
 
   return (
     <header className="navbar">
@@ -181,34 +190,76 @@ export default function Navbar({ onOpenNuevoTurno, onOpenCantina, activeTab, set
             {unreadCount > 0 && (
               <span style={{
                 position: 'absolute', top: 5, right: 5,
-                width: 16, height: 16, borderRadius: '50%',
+                minWidth: 16, height: 16, padding: '0 3px', borderRadius: 99,
                 background: 'var(--blue)', border: '2px solid var(--bg-pitch)',
-                fontSize: '0.6rem', fontWeight: 900, color: 'var(--text-primary)',
+                fontSize: '0.6rem', fontWeight: 900, color: 'var(--on-accent)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 lineHeight: 1
-              }}>{unreadCount}</span>
+              }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
             )}
           </button>
 
           {notifOpen && (
-            <div className="dropdown-menu" style={{ right: 0, top: 'calc(100% + 8px)', minWidth: 300 }}>
-              <div style={{ padding: '8px 12px 6px', borderBottom: '1px solid var(--border-dim)', marginBottom: 4 }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>Notificaciones</span>
+            <div className="dropdown-menu dropdown-notif">
+              <div className="dropdown-notif-header">
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Notificaciones
+                  {unreadCount > 0 && (
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> · {unreadCount} sin leer</span>
+                  )}
+                </span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={marcarTodasLeidas}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none',
+                      cursor: 'pointer', padding: 0, flexShrink: 0,
+                      fontSize: '0.72rem', fontWeight: 700, color: 'var(--celeste)',
+                    }}
+                  >
+                    <CheckCheck size={13} /> Marcar todas
+                  </button>
+                )}
               </div>
-              {notifications.map(n => (
-                <div key={n.id} className="dropdown-item" style={{ gap: 10, alignItems: 'flex-start', opacity: n.read ? 0.6 : 1 }}>
-                  <n.icon size={16} color={n.color} style={{ flexShrink: 0, marginTop: 1 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 1 }}>{n.text}</p>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{n.sub}</p>
-                  </div>
-                  {!n.read && <span style={{ width: 7, height: 7, borderRadius: '50%', background: n.color, flexShrink: 0, marginTop: 5 }} />}
+
+              {notificaciones.length === 0 ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  padding: '28px 14px', color: 'var(--text-muted)', fontSize: '0.82rem',
+                }}>
+                  <Check size={15} /> Todo al día
                 </div>
-              ))}
-              <div className="dropdown-divider" />
-              <button className="dropdown-item" style={{ justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                Ver todas las notificaciones
-              </button>
+              ) : notificaciones.map((n) => {
+                const Icono = ICONO_NOTIF[n.iconKey] ?? MessageSquare;
+                return (
+                  <button
+                    key={n.id}
+                    className="dropdown-item"
+                    onClick={() => { abrir(n); setNotifOpen(false); }}
+                    style={{ gap: 11, alignItems: 'flex-start', textAlign: 'left', opacity: n.leida ? 0.5 : 1 }}
+                  >
+                    <span style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: 30, height: 30, borderRadius: 9, flexShrink: 0, marginTop: 1,
+                      background: `rgb(from ${n.color} r g b / 0.12)`,
+                      color: n.color,
+                    }}>
+                      <Icono size={15} />
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {n.titulo}
+                      </span>
+                      <span className="truncate-1" style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 1 }}>
+                        {n.detalle}
+                      </span>
+                    </span>
+                    {!n.leida && (
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: n.color, flexShrink: 0, marginTop: 11 }} />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
