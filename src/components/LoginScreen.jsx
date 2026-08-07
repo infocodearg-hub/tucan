@@ -1,69 +1,47 @@
 /**
- * LoginScreen.jsx — Fase 4
+ * LoginScreen.jsx — acceso real contra Supabase Auth.
  *
- * Gate de acceso local. Valida contra config.acceso.usuario / .password.
- * La sesión se guarda en localStorage directamente (no en el store: ui no
- * se persiste y no queremos que un F5 cierre la sesión).
- *
- * Seguridad: esto NO es auth real. Es solo una pantalla de acceso para
- * demo. Al migrar a Supabase, este componente se reemplaza por Supabase Auth.
+ * No hay registro público: las cuentas se crean desde nuestro lado
+ * (`tools/provision.mjs`) y el dueño suma a su equipo desde Configuración.
+ * Esta pantalla solo inicia sesión y pide recuperación de contraseña.
  */
 import React, { useState } from 'react';
-import { Eye, EyeOff, LogIn, AlertCircle, Volleyball } from 'lucide-react';
-import { useConfig } from '../store';
+import { Eye, EyeOff, LogIn, AlertCircle, ArrowLeft, MailCheck } from 'lucide-react';
+import { useAuth } from '../auth/AuthProvider.jsx';
+import logoSetygol from '../assets/logo-setygol.png';
 
-export const SESSION_KEY = 'tucan_session_v1';
+export default function LoginScreen() {
+  const { signIn, recuperarPassword } = useAuth();
 
-/** Devuelve true si hay sesión activa en localStorage. */
-export function hasActiveSession() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return false;
-    const s = JSON.parse(raw);
-    return !!s?.loggedIn;
-  } catch {
-    return false;
-  }
-}
-
-/** Guarda la sesión en localStorage. */
-export function saveSession() {
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ loggedIn: true, ts: Date.now() }));
-}
-
-/** Borra la sesión. */
-export function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-}
-
-// ─── Componente ───────────────────────────────────────────────────────────────
-export default function LoginScreen({ onLogin }) {
-  const config = useConfig();
-
-  const [usuario, setUsuario] = useState('');
+  const [modo, setModo] = useState('login'); // 'login' | 'recuperar' | 'enviado'
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const acceso = config?.acceso;
-  const nombreComplejo = config?.complejo?.nombre ?? 'TuCan';
-
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    // Simula latencia de red para que no parezca instantáneo
-    await new Promise((r) => setTimeout(r, 400));
-
-    if (usuario.trim() === acceso?.usuario && password === acceso?.password) {
-      saveSession();
-      onLogin();
-    } else {
-      setError('Usuario o contraseña incorrectos.');
-    }
+    const res = await signIn(email, password);
+    if (!res.ok) setError(res.error);
+    // Si salió bien no se toca el estado: `onAuthStateChange` desmonta esta
+    // pantalla. Setear estado sobre un componente ya desmontado avisa en consola.
     setLoading(false);
+  };
+
+  const handleRecuperar = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    const res = await recuperarPassword(email);
+    setLoading(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setModo('enviado');
   };
 
   return (
@@ -84,95 +62,162 @@ export default function LoginScreen({ onLogin }) {
         borderRadius: 20,
         background: 'var(--bg-card)',
         border: '1px solid var(--border-dim)',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.45), 0 0 80px rgba(0,230,118,0.04)',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.45), 0 0 80px rgb(from var(--celeste) r g b / 0.04)',
       }}>
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16, margin: '0 auto 12px',
-            background: 'linear-gradient(140deg, var(--green) 0%, var(--green-dark) 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 30px rgba(0,230,118,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-          }}>
-            <Volleyball size={26} color="white" strokeWidth={2.2} />
-          </div>
-          <h1 className="font-heading" style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: 4 }}>
-            Tu<span style={{ color: 'var(--green)' }}>Can</span>
-          </h1>
+          <img
+            src={logoSetygol}
+            alt="Set&gol"
+            style={{ height: 52, width: 'auto', borderRadius: 10, margin: '0 auto 14px' }}
+          />
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {nombreComplejo} — Panel de Administración
+            {modo === 'login' ? 'Panel de Administración' : 'Recuperar acceso'}
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {error && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
-              borderRadius: 10, background: 'rgba(255,79,79,0.08)', border: '1px solid rgba(255,79,79,0.3)',
-              color: 'var(--red)', fontSize: '0.8rem', fontWeight: 600,
-            }}>
-              <AlertCircle size={14} style={{ flexShrink: 0 }} /> {error}
-            </div>
-          )}
-
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Usuario</label>
-            <input
-              type="text"
-              autoComplete="username"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-              className="form-input"
-              placeholder="admin"
-              required
-            />
+        {error && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14,
+            borderRadius: 10, background: 'rgba(255,79,79,0.08)', border: '1px solid rgba(255,79,79,0.3)',
+            color: 'var(--red)', fontSize: '0.8rem', fontWeight: 600,
+          }}>
+            <AlertCircle size={14} style={{ flexShrink: 0 }} /> {error}
           </div>
+        )}
 
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Contraseña</label>
-            <div style={{ position: 'relative' }}>
+        {/* ─── Iniciar sesión ─── */}
+        {modo === 'login' && (
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" htmlFor="login-email">Email</label>
               <input
-                type={showPass ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                id="login-email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="form-input"
-                placeholder="••••••"
+                placeholder="tu@complejo.com"
                 required
-                style={{ paddingRight: 42 }}
               />
-              <button
-                type="button"
-                onClick={() => setShowPass((v) => !v)}
-                style={{
-                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
-                }}
-              >
-                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
             </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" htmlFor="login-password">Contraseña</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="login-password"
+                  type={showPass ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="form-input"
+                  placeholder="••••••••"
+                  required
+                  style={{ paddingRight: 42 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass((v) => !v)}
+                  aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  style={{
+                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
+                  }}
+                >
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading}
+              style={{ width: '100%', justifyContent: 'center', padding: '12px', marginTop: 4, opacity: loading ? 0.7 : 1 }}
+            >
+              <LogIn size={16} style={{ color: 'var(--on-accent)' }} />
+              {loading ? 'Ingresando…' : 'Ingresar al Panel'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setModo('recuperar'); setError(''); }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                color: 'var(--text-muted)', fontSize: '0.76rem', fontWeight: 600,
+              }}
+            >
+              Olvidé mi contraseña
+            </button>
+          </form>
+        )}
+
+        {/* ─── Pedir link de recuperación ─── */}
+        {modo === 'recuperar' && (
+          <form onSubmit={handleRecuperar} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Te mandamos un link a tu email para que puedas elegir una contraseña nueva.
+            </p>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" htmlFor="recuperar-email">Email</label>
+              <input
+                id="recuperar-email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="form-input"
+                placeholder="tu@complejo.com"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading}
+              style={{ width: '100%', justifyContent: 'center', padding: '12px', opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? 'Enviando…' : 'Enviarme el link'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setModo('login'); setError(''); }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                color: 'var(--text-muted)', fontSize: '0.76rem', fontWeight: 600,
+              }}
+            >
+              <ArrowLeft size={13} /> Volver
+            </button>
+          </form>
+        )}
+
+        {/* ─── Confirmación ─── */}
+        {modo === 'enviado' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, textAlign: 'center' }}>
+            <MailCheck size={34} style={{ margin: '0 auto', color: 'var(--celeste)' }} />
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Si esa dirección tiene una cuenta, en unos minutos te va a llegar el link para
+              cambiar la contraseña. Revisá también la carpeta de spam.
+            </p>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => { setModo('login'); setError(''); }}
+              style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+            >
+              Volver al inicio de sesión
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading}
-            style={{ width: '100%', justifyContent: 'center', padding: '12px', marginTop: 4, opacity: loading ? 0.7 : 1 }}
-          >
-            <LogIn size={16} style={{ color: 'var(--on-accent)' }} />
-            {loading ? 'Ingresando…' : 'Ingresar al Panel'}
-          </button>
-        </form>
-
-        {/* Hint demo */}
-        <p style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 20 }}>
-          Demo: usuario <code style={{ fontFamily: 'monospace', color: 'var(--green)' }}>admin</code> ·
-          contraseña <code style={{ fontFamily: 'monospace', color: 'var(--green)' }}>tucan</code>
-        </p>
+        )}
       </div>
     </div>
   );

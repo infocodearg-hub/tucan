@@ -1,0 +1,1593 @@
+{
+  "name": "Canchas — Bot de Reservas V1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "canchas-chatwoot",
+        "options": {}
+      },
+      "id": "1c398d21-d2ae-4b8d-93d2-6b304f28f258",
+      "name": "Chatwoot Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        6608,
+        -1024
+      ],
+      "webhookId": "canchas-chatwoot-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── MODO PRUEBA ──────────────────────────────────────────────────────────\n// El inbox de Chatwoot se comparte con el bot del lubricentro y con el de\n// Gianni. Sin este filtro contestan los tres a la vez sobre la misma\n// conversación. Poné acá tu número de prueba: SOLO DÍGITOS, con código de país.\n//\n//   const SOLO_ESTOS_NUMEROS = ['5492214412200'];\n//\n// Lista vacía = atiende a todos. Cuando el complejo tenga su propio número,\n// vaciala. Y acordate de la mitad simétrica: los otros workflows tienen que\n// EXCLUIR estos mismos números, si no te siguen contestando en paralelo.\nconst SOLO_ESTOS_NUMEROS = [];\n\n// Aplana el payload de Chatwoot de forma defensiva (soporta wrap en body).\nconst p = ($json && $json.body) ? $json.body : ($json || {});\nconst event = p.event || '';\nconst mt = p.message_type;\nconst isIncoming = (mt === 'incoming' || mt === 0 || mt === '0');\nconst conv = p.conversation || {};\nconst meta = conv.meta || {};\nconst sender = p.sender || meta.sender || {};\n\nlet attachments = p.attachments || [];\nif ((!attachments || !attachments.length) && Array.isArray(p.messages) && p.messages[0]) {\n  attachments = p.messages[0].attachments || [];\n}\nconst audioAtt = (attachments || []).find(a => a && (a.file_type === 'audio' || a.file_type === 'voice'));\n// El comprobante de la seña llega como imagen (captura del banco) o PDF.\nconst docAtt = (attachments || []).find(a => a && (a.file_type === 'image' || a.file_type === 'file'));\n\nconst phoneRaw = sender.phone_number || sender.identifier || '';\nconst phoneNumber = String(phoneRaw).replace(/\\D/g, '');\n\nlet type = 'text';\nif (audioAtt) type = 'audio';\nelse if (docAtt) type = 'archivo';\n\n// El código de reserva se extrae con una expresión regular y NO se le pregunta\n// al modelo. Es el vínculo entre la reserva de la web y este chat: si depende\n// de que el modelo lo lea bien, un día cobra la seña del turno equivocado.\n// El alfabeto no tiene O ni I ni 0 ni 1 (se confunden al dictarlos).\nconst texto = String(p.content || '');\nconst mCod = texto.match(/#\\s?([A-HJ-NP-Z2-9]{6})\\b/i);\nconst codigoReserva = mCod ? mCod[1].toUpperCase() : '';\n\n// Mime y tamaño hacen falta ANTES de bajar el archivo: la Edge Function los\n// valida antes de firmar la subida, así que un archivo que no corresponde ni\n// se descarga de Chatwoot.\nlet archivoMime = '';\nif (docAtt) {\n  archivoMime = docAtt.content_type\n    || (docAtt.file_type === 'image' ? 'image/jpeg' : 'application/pdf');\n}\n\nconst numeroHabilitado =\n  SOLO_ESTOS_NUMEROS.length === 0 || SOLO_ESTOS_NUMEROS.indexOf(phoneNumber) !== -1;\n\nreturn [{ json: {\n  event: event,\n  isIncoming: isIncoming,\n  isMessageCreated: event === 'message_created',\n  numeroHabilitado: numeroHabilitado,\n  proceed: (event === 'message_created' && isIncoming && numeroHabilitado),\n  type: type,\n  content: texto,\n  codigoReserva: codigoReserva,\n  audioUrl: audioAtt ? (audioAtt.data_url || '') : '',\n  archivoUrl: docAtt ? (docAtt.data_url || '') : '',\n  archivoMime: archivoMime,\n  archivoTamano: docAtt ? (docAtt.file_size || 0) : 0,\n  phoneNumber: phoneNumber,\n  pushName: sender.name || 'Jugador',\n  conversationId: (conv.id != null ? conv.id : (p.conversation_id != null ? p.conversation_id : '')),\n  accountId: (p.account && p.account.id != null ? p.account.id : ''),\n  messageId: (p.id != null ? p.id : '')\n} }];"
+      },
+      "id": "cbff23f0-c7d1-4286-9d98-c2bda57232df",
+      "name": "Normalizar Entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6832,
+        -1024
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-proceed",
+              "leftValue": "={{ $json.proceed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "15dbed95-4b5f-418a-a87a-8317c32aa1db",
+      "name": "Anti-Bucle (incoming)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        7056,
+        -1024
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "estado_sesion"
+            },
+            {
+              "name": "telefono",
+              "value": "={{ $('Normalizar Entrada').first().json.phoneNumber }}"
+            },
+            {
+              "name": "codigo",
+              "value": "={{ $('Normalizar Entrada').first().json.codigoReserva }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e0a92781-5fb2-4bec-91d9-ee50d532d881",
+      "name": "Estado de Sesion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7280,
+        -1024
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Si la API se cae, el bot degrada a \"sin contexto\" en vez de quedarse mudo: el IF de al lado lee `pausado` como falsy y sigue."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-pausado",
+              "leftValue": "={{ $json.pausado === true || $json.bot_activo === false || $json.muteado === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "269bda3e-56ed-43bb-a974-99eda7687088",
+      "name": "Bot en pausa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        7488,
+        -1024
+      ],
+      "notes": "Rama true vacía a propósito: alguien del complejo está atendiendo esa conversación, el bot está apagado desde Configuración, o el dueño muteó a mano este teléfono desde Derivaciones → Muteados (sin vencimiento, a diferencia de `pausado`)."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond_text",
+                    "leftValue": "={{ $('Normalizar Entrada').first().json.type }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "texto"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond_audio",
+                    "leftValue": "={{ $('Normalizar Entrada').first().json.type }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond_archivo",
+                    "leftValue": "={{ $('Normalizar Entrada').first().json.type }}",
+                    "rightValue": "archivo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "archivo"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "07d3ae83-dcc6-42ba-a80d-24168864baed",
+      "name": "Tipo de Mensaje",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        7712,
+        -1024
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Normalizar Entrada').first().json.audioUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "eecea972-f0c9-41fd-8a13-8bb3a5ceeca3",
+      "name": "Descargar Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7936,
+        -848
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WXsGTaNnkqIlEF3v",
+          "name": "TOKEN BOT MASIBER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {
+          "language": "es"
+        }
+      },
+      "id": "1c799931-186a-48df-9b88-ecb4304f1d34",
+      "name": "Transcribir con Whisper",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        8160,
+        -848
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "UTJYQgYNqcGips4x",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "preparar_comprobante"
+            },
+            {
+              "name": "telefono",
+              "value": "={{ $('Normalizar Entrada').first().json.phoneNumber }}"
+            },
+            {
+              "name": "codigo",
+              "value": "={{ $('Normalizar Entrada').first().json.codigoReserva }}"
+            },
+            {
+              "name": "mime",
+              "value": "={{ $('Normalizar Entrada').first().json.archivoMime }}"
+            },
+            {
+              "name": "tamano",
+              "value": "={{ $('Normalizar Entrada').first().json.archivoTamano }}"
+            },
+            {
+              "name": "refExterna",
+              "value": "=wa:{{ $('Normalizar Entrada').first().json.messageId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "25f16c13-f48d-48bc-bf15-df391ee34809",
+      "name": "Preparar Comprobante",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7936,
+        -672
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Resuelve a qué turno va la seña y devuelve una URL firmada de subida. Los 409 (comprobante duplicado, varias reservas abiertas) tienen que caer al lado false del IF, no romper la ejecución."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-turno",
+              "leftValue": "={{ $json.bookingId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "80f277a7-afd7-46c0-ae93-c166ba9c2ca5",
+      "name": "Hay turno para cobrar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        8160,
+        -672
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Normalizar Entrada').first().json.archivoUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "ffcf65a8-56a9-4005-9740-7d758b23577f",
+      "name": "Descargar Adjunto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        8368,
+        -704
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WXsGTaNnkqIlEF3v",
+          "name": "TOKEN BOT MASIBER"
+        }
+      },
+      "notes": "Los data_url de Chatwoot piden el header de autenticación, por eso el archivo pasa por n8n y no se le manda la URL a Supabase."
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $('Preparar Comprobante').first().json.uploadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "={{ $('Normalizar Entrada').first().json.archivoMime }}"
+            },
+            {
+              "name": "x-upsert",
+              "value": "false"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "0d80922e-8326-45d7-ac47-8e01ecc234c3",
+      "name": "Subir a Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        8592,
+        -704
+      ],
+      "notes": "SIN credencial: el token va firmado dentro de la URL y dura un solo uso. El binario va directo de n8n a Storage — la Edge Function no lo toca."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "confirmar_reserva"
+            },
+            {
+              "name": "bookingId",
+              "value": "={{ $('Preparar Comprobante').first().json.bookingId }}"
+            },
+            {
+              "name": "comprobantePath",
+              "value": "={{ $('Preparar Comprobante').first().json.path }}"
+            },
+            {
+              "name": "monto",
+              "value": "={{ $('Preparar Comprobante').first().json.monto }}"
+            },
+            {
+              "name": "metodo",
+              "value": "transferencia"
+            },
+            {
+              "name": "refExterna",
+              "value": "=wa:{{ $('Normalizar Entrada').first().json.messageId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7abade4b-42bc-4e73-9ca7-708e16cf8ff1",
+      "name": "Confirmar Reserva",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        8816,
+        -704
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "SIN retry a propósito: un reintento ciego después de un timeout podría duplicar el pago. La idempotencia por refExterna lo cubre igual, pero es mejor no depender de ella."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://app.codearg.ar/api/v1/accounts/{{ $('Normalizar Entrada').first().json.accountId }}/conversations/{{ $('Normalizar Entrada').first().json.conversationId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "Recibí el comprobante 📎 pero no encuentro a qué reserva corresponde. Pasame el código que te dimos al reservar (son 6 caracteres, tipo #T4K9Q2) o decime para qué día y horario era."
+            },
+            {
+              "name": "message_type",
+              "value": "outgoing"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "093a3967-cb42-492e-8cae-c47f56242a1d",
+      "name": "Responder Sin Contexto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        8368,
+        -528
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WXsGTaNnkqIlEF3v",
+          "name": "TOKEN BOT MASIBER"
+        }
+      },
+      "notes": "El archivo NO se sube: sin un turno al que asociarlo quedaría huérfano en Storage."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://app.codearg.ar/api/v1/accounts/{{ $('Normalizar Entrada').first().json.accountId }}/conversations/{{ $('Normalizar Entrada').first().json.conversationId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "¡Gracias por escribirnos! Por acá puedo leer texto, audios y fotos o PDF 🙂 Contame en una frase qué necesitás y seguimos."
+            },
+            {
+              "name": "message_type",
+              "value": "outgoing"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "426752ce-0697-4268-ae07-5d7fa214f3ea",
+      "name": "Responder No Soportado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7936,
+        -384
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WXsGTaNnkqIlEF3v",
+          "name": "TOKEN BOT MASIBER"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = $('Normalizar Entrada').first().json;\n\nlet contexto = {};\ntry { contexto = $('Estado de Sesion').first().json || {}; } catch (e) { contexto = {}; }\n\n// ─── La fecha se calcula ACÁ y no se toma de la API ────────────────────────\n// Un modelo de lenguaje sin fecha explícita no dice \"no sé qué día es\": usa la\n// de su entrenamiento. Es exactamente así como una consulta por \"hoy a las 14\"\n// terminó buscando disponibilidad para abril de 2024.\n//\n// Este bloque corre siempre, aunque la Edge Function esté caída o la\n// credencial esté mal: es JavaScript local, no depende de ninguna red.\nconst TZ = 'America/Argentina/Cordoba';\nconst ahora = new Date();\nconst hoy = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(ahora);\nconst horaActual = new Intl.DateTimeFormat('es-AR', {\n  timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false\n}).format(ahora);\n\nconst DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];\nconst MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];\n\n// Fecha civil como números, sin pasar por Date: '2026-08-06' interpretado como\n// Date da el día anterior en Argentina, y ese corrimiento en un bot de reservas\n// significa mandar a alguien a la cancha el día equivocado.\nconst [aa, mm, dd] = hoy.split('-').map(Number);\nconst diaSemana = DIAS[new Date(Date.UTC(aa, mm - 1, dd)).getUTCDay()];\n\nconst sumar = (n) => {\n  const d = new Date(Date.UTC(aa, mm - 1, dd + n));\n  return d.toISOString().slice(0, 10);\n};\n\n// Los próximos 7 días con nombre, para que traducir \"el sábado\" sea buscar en\n// una lista y no hacer aritmética de calendario.\nconst proximos = [];\nfor (let i = 0; i <= 7; i++) {\n  const iso = sumar(i);\n  const [y, m, d] = iso.split('-').map(Number);\n  const nombre = DIAS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];\n  const etiqueta = i === 0 ? 'hoy' : i === 1 ? 'mañana' : i === 2 ? 'pasado mañana' : nombre;\n  proximos.push(etiqueta + ' = ' + iso + ' (' + nombre + ' ' + d + ')');\n}\n\nconst hoyTexto = 'Hoy es ' + diaSemana + ' ' + dd + ' de ' + MESES[mm - 1] + ' de ' + aa\n  + ' (' + hoy + '), y son las ' + horaActual + ' en Argentina.\\n'\n  + 'Equivalencias de los próximos días:\\n  ' + proximos.join('\\n  ');\n\nlet userMessage = '';\n\nif (norm.type === 'text') {\n  userMessage = norm.content || '';\n\n} else if (norm.type === 'audio') {\n  try {\n    userMessage = $('Transcribir con Whisper').first().json.text || '[Audio no transcrito]';\n  } catch (e) {\n    userMessage = '[Error al transcribir audio]';\n  }\n\n} else if (norm.type === 'archivo') {\n  // Acá ya pasó todo: se resolvió el turno, se bajó el archivo de Chatwoot, se\n  // subió a Storage y la Edge Function decidió qué hacer. El agente NO ve la\n  // imagen: recibe el resultado y una instrucción de qué contestar.\n  let r = {};\n  try { r = $('Confirmar Reserva').first().json || {}; } catch (e) { r = {}; }\n\n  if (r.ok && r.estado === 'reservado' && r.yaConfirmado) {\n    userMessage = '[Sistema] Ese comprobante ya lo habiamos recibido y el turno ya esta confirmado. '\n      + 'Decíselo en una línea, sin pedirle que lo reenvíe y sin volver a pedirle la seña.';\n\n  } else if (r.ok && r.estado === 'reservado') {\n    const t = r.turno || {};\n    userMessage = '[Sistema] Llego el comprobante y el turno quedo CONFIRMADO: '\n      + (t.cancha || 'la cancha') + ', ' + (t.fecha || '') + ' a las ' + (t.hora || '') + ' hs'\n      + (t.codigo ? ', codigo ' + t.codigo : '') + '. '\n      + 'Pagado ' + (t.pagado != null ? t.pagado : 0) + ', saldo ' + (t.saldo != null ? t.saldo : 0) + '. '\n      + 'Confirmaselo en dos renglones, recordale el saldo si hay, y aclarale que el complejo '\n      + 'verifica el pago. No le pidas nada mas.';\n\n  } else if (r.ok && r.requiereValidacion) {\n    userMessage = '[Sistema] Llego el comprobante y quedo guardado, pero este complejo revisa cada '\n      + 'pago a mano antes de confirmar. Decile que el complejo lo verifica y le confirma por aca. '\n      + 'NO le digas que el turno esta confirmado.';\n\n  } else if (r.codigo === 'slot_tomado_con_pago') {\n    userMessage = '[Sistema] El comprobante llego pero el horario se habia vencido y lo tomo otro '\n      + 'cliente. Pedile disculpas en una linea, decile que el complejo se comunica para reubicarlo '\n      + 'o resolver la sena, y DERIVA. No prometas devolucion de plata.';\n\n  } else if (r.codigo === 'comprobante_duplicado') {\n    userMessage = '[Sistema] Ese comprobante ya lo habiamos recibido. Decíselo en una linea y segui.';\n\n  } else {\n    userMessage = '[Sistema] Llego un archivo del cliente pero no se pudo procesar. NO le pidas que '\n      + 'lo reenvie: decile que el complejo lo verifica y DERIVA.';\n  }\n\n  if (norm.content) userMessage += ' El cliente ademas escribio: ' + norm.content;\n}\n\nreturn [{ json: {\n  chatInput: userMessage,\n  sessionId: norm.phoneNumber,\n  phoneNumber: norm.phoneNumber,\n  pushName: norm.pushName,\n  codigoReserva: norm.codigoReserva,\n  hoy: hoy,\n  horaActual: horaActual,\n  hoyTexto: hoyTexto,\n  // El contexto viaja serializado: se interpola tal cual al final del system\n  // prompt, así el agente arranca sabiendo quién escribe y qué reservas tiene\n  // sin gastar una llamada a una herramienta.\n  contexto: JSON.stringify(contexto),\n  conversationId: norm.conversationId,\n  accountId: norm.accountId,\n  messageType: norm.type,\n  messageId: norm.messageId,\n  timestamp: new Date().toISOString()\n} }];"
+      },
+      "id": "4fbb6a57-5bcf-4ab3-9194-55298477021c",
+      "name": "Preparar Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9072,
+        -1024
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "=cancha:buf:{{ $('Preparar Datos').item.json.sessionId }}",
+        "messageData": "={{ $('Preparar Datos').item.json.chatInput }}",
+        "tail": true
+      },
+      "id": "7b021b89-cd9e-4caa-ac2a-a5c131fcfa2e",
+      "name": "Guardar en Buffer",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        9296,
+        -1024
+      ],
+      "credentials": {
+        "redis": {
+          "id": "oectECWs8qNv8Mki",
+          "name": "Redis Gianni"
+        }
+      },
+      "notes": "Elegí cualquier credencial de Redis: sirve la de Gianni tal cual. Todas las claves de este workflow llevan el prefijo `cancha:`, así que no se pisan con las de los otros bots aunque compartan la misma base."
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=cancha:bufid:{{ $('Preparar Datos').item.json.sessionId }}",
+        "value": "={{ $('Preparar Datos').item.json.messageId }}",
+        "keyType": "string",
+        "expire": true,
+        "ttl": 120
+      },
+      "id": "d6c29900-a0eb-4377-85ed-cd30bd2c4989",
+      "name": "Marcar Ultimo",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        9520,
+        -1024
+      ],
+      "credentials": {
+        "redis": {
+          "id": "oectECWs8qNv8Mki",
+          "name": "Redis Gianni"
+        }
+      },
+      "notes": "Elegí cualquier credencial de Redis: sirve la de Gianni tal cual. Todas las claves de este workflow llevan el prefijo `cancha:`, así que no se pisan con las de los otros bots aunque compartan la misma base."
+    },
+    {
+      "parameters": {
+        "amount": 8
+      },
+      "id": "4b2d6f9c-f86b-4614-a032-0692ccd1c0bf",
+      "name": "Esperar 8s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        9728,
+        -1024
+      ],
+      "webhookId": "canchas-wait-buffer",
+      "notes": "Junta la ráfaga de mensajes cortos en uno solo. Solo la última ejecución del burst sigue."
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "lastId",
+        "key": "=cancha:bufid:{{ $('Preparar Datos').item.json.sessionId }}",
+        "keyType": "string",
+        "options": {}
+      },
+      "id": "75900e02-19be-49a6-8e21-0420fb28e9fd",
+      "name": "Leer Ultimo Id",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        9952,
+        -1024
+      ],
+      "credentials": {
+        "redis": {
+          "id": "oectECWs8qNv8Mki",
+          "name": "Redis Gianni"
+        }
+      },
+      "notes": "Elegí cualquier credencial de Redis: sirve la de Gianni tal cual. Todas las claves de este workflow llevan el prefijo `cancha:`, así que no se pisan con las de los otros bots aunque compartan la misma base."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-ultimo",
+              "leftValue": "={{ $json.lastId }}",
+              "rightValue": "={{ $('Preparar Datos').item.json.messageId }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "62e87131-6fec-4105-a217-c8ede6a7f3c1",
+      "name": "Es el ultimo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        10176,
+        -1024
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "buffer",
+        "key": "=cancha:buf:{{ $('Preparar Datos').item.json.sessionId }}",
+        "keyType": "list",
+        "options": {}
+      },
+      "id": "f8bf5506-c6fd-4fa3-ba24-06bb64f06fb8",
+      "name": "Leer Buffer",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        10400,
+        -1024
+      ],
+      "credentials": {
+        "redis": {
+          "id": "oectECWs8qNv8Mki",
+          "name": "Redis Gianni"
+        }
+      },
+      "notes": "Elegí cualquier credencial de Redis: sirve la de Gianni tal cual. Todas las claves de este workflow llevan el prefijo `cancha:`, así que no se pisan con las de los otros bots aunque compartan la misma base."
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "=cancha:buf:{{ $('Preparar Datos').item.json.sessionId }}"
+      },
+      "id": "7ee7c354-e652-42c6-8081-4708e476aa38",
+      "name": "Limpiar Buffer",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        10608,
+        -1024
+      ],
+      "credentials": {
+        "redis": {
+          "id": "oectECWs8qNv8Mki",
+          "name": "Redis Gianni"
+        }
+      },
+      "notes": "Elegí cualquier credencial de Redis: sirve la de Gianni tal cual. Todas las claves de este workflow llevan el prefijo `cancha:`, así que no se pisan con las de los otros bots aunque compartan la misma base."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ ($('Leer Buffer').item.json.buffer || []).join('\\n') }}",
+        "options": {
+          "systemMessage": "=== QUÉ DÍA ES HOY (leé esto ANTES que nada) ===\n{{ $('Preparar Datos').item.json.hoyTexto }}\n\nEsa es la ÚNICA fecha real. No tenés ninguna otra forma de saber qué día es: lo que creas\nrecordar sobre el año en curso está mal. Cualquier fecha que le mandes a una herramienta tiene\nque salir de la lista de equivalencias de arriba o calcularse a partir de ella.\n\n=== TU TRABAJO EN UNA FRASE ===\nQue el jugador termine con la cancha reservada y la seña pagada, sin que el complejo tenga que\nintervenir. Reservar, cobrar la seña y confirmar es lo que cerrás vos. Todo lo demás —plata que\nvuelve, reclamos, excepciones, cambios de turno— se lo pasás al complejo.\n\n=== PROTOCOLO DE HERRAMIENTAS (OBLIGATORIO, NO NEGOCIABLE) ===\n1. Ningún precio, horario, dirección ni disponibilidad sale de tu cabeza. Sale de\n   `ver_disponibilidad` o de `info_complejo`. Si no llamaste a una de las dos en esta\n   conversación, ese dato NO lo tenés: llamala.\n2. Antes de reservar, SIEMPRE `ver_disponibilidad` de esa fecha. Nunca reserves un horario que no\n   viste libre en la respuesta de la herramienta, y nunca digas que no hay lugar sin haberla\n   llamado.\n3. Antes de reservar por primera vez, repetile al cliente día, hora, cancha y nombre en una\n   frase y esperá que diga que sí — ver CAMINO 2, pasos 4-5. Recién cuando confirma ESE mensaje,\n   llamá a `reservar_turno` en el mismo turno de conversación. No sigas charlando con la reserva\n   \"en la cabeza\" una vez que confirmó.\n4. Apenas tenés el turno reservado, llamá a `datos_de_pago` y pasale alias, CBU, titular y monto.\n   Nunca dictes un alias, un CBU ni un titular de memoria.\n5. Si el cliente pide ver, mover o cancelar un turno suyo, llamá a `mis_turnos` PRIMERO. Nunca\n   hables de un turno que no viste en esa respuesta.\n6. Para cancelar, `cancelar_turno`. Nunca digas \"listo, te lo cancelé\" sin haberla llamado y sin\n   que haya devuelto ok.\n7. Al derivar, llamá a `derivar_a_humano` en el mismo turno en que se lo anunciás al cliente.\nSi corresponde una llamada y no la ejecutás, tu respuesta es incorrecta aunque suene bien.\n\n=== IDENTIDAD ===\n- Sos el asistente de reservas del complejo. NO tenés nombre propio: si te preguntan cómo te\n  llamás, decí que sos el asistente del complejo y seguí.\n- Tono: canchero pero respetuoso, voseo argentino, directo. Nada de \"estimado cliente\" ni de\n  entusiasmo de vendedor. Un emoji cada tanto, no en cada línea.\n- Estilo: MUY BREVE. Máximo 2 o 3 renglones. UNA sola pregunta por mensaje.\n- Nunca digas que sos una inteligencia artificial, ni menciones herramientas, sistemas, paneles,\n  bases de datos ni nada interno.\n\nREGLA DE ORO — CERO INVENCIÓN:\n- Prohibido inventar o estimar: precios, descuentos, promociones, dirección, horarios, si hay\n  vestuario, parrilla, estacionamiento, pelotas, pecheras, si se puede pagar en la cancha, si\n  aceptan tarjeta, qué pasa si llueve, torneos, cumpleaños.\n- Si no está en la respuesta de una herramienta, NO LO SABÉS. Decilo en una línea y derivá.\n- No prometas devoluciones de plata. Nunca. Ni \"te devolvemos la seña\", ni \"te la descontamos del\n  próximo\". Eso lo decide el complejo.\n- No confirmes un turno \"a mano\". Un turno está confirmado únicamente cuando una herramienta te\n  dijo que quedó confirmado.\n\n=== APERTURA ===\nAl final de estas instrucciones tenés un bloque CONTEXTO con lo que el sistema ya sabe de este\nnúmero. Leelo ANTES de escribir. No llames a ninguna herramienta para conseguir eso.\n\nA) Si el CONTEXTO trae `pendientes` con al menos un turno:\n   Esa persona ya eligió cancha en la web y viene a confirmar. Arrancá por ahí: saludá, repetile\n   día, hora y cancha, decile el monto de la seña, y pedile que transfiera y mande el comprobante.\n   Llamá a `datos_de_pago` con ese bookingId para darle alias, CBU y titular. Avisale cuántos\n   minutos le quedan antes de que se libere el horario (viene en `expiraEn`).\n   NO le vuelvas a preguntar qué día quiere: ya lo eligió.\n\nB) Si el CONTEXTO trae `cliente` con nombre y no hay pendientes:\n   Saludalo por su nombre y preguntale en qué lo ayudás. No le pidas el nombre de nuevo.\n\nC) Si no lo conocemos:\n   Un solo mensaje: saludo + presentación + \"¿para qué día y horario buscás cancha?\".\n   Nada de menús numerados ni listas de opciones.\n\n=== CAMINO 1 — VIENE A CONFIRMAR UN TURNO DE LA WEB ===\n1. El turno está tomado pero VENCE. Decilo una vez, sin dramatizar: \"Te lo tengo guardado por X\n   minutos\".\n2. `datos_de_pago` y pasale, en un solo mensaje: monto de la seña, alias, CBU y titular. Copialos\n   EXACTAMENTE como vinieron. Un CBU mal copiado es plata que se va a otra cuenta.\n3. Pedile la foto o la captura del comprobante por acá.\n4. Cuando llegue, el sistema lo procesa solo y te avisa con un mensaje que arranca con \"[Sistema]\".\n   Seguí esa instrucción al pie de la letra.\n5. Si el cliente dice \"ya transferí\" pero no manda comprobante: pediselo una vez. Si insiste en\n   que no lo tiene, `derivar_a_humano`. Nunca confirmes un turno sin comprobante.\n\n=== CAMINO 2 — QUIERE RESERVAR DE CERO POR ACÁ ===\n1. Si todavía no dijo el día, preguntáselo (una sola pregunta).\n   Si YA dijo día y hora en el mismo mensaje —\"para hoy a las 14\", \"el sábado a la noche\"— NO se\n   lo vuelvas a preguntar: andá derecho a `ver_disponibilidad` con lo que te dio.\n2. `ver_disponibilidad` de ese día. Ofrecé como mucho 4 horarios, con cancha y precio, en una\n   lista corta. Nombrá el día como lo dijo el cliente (\"hoy\", \"el sábado\"), no en formato ISO:\n   los números de fecha son para las herramientas, no para la conversación.\n3. Cuando elige, si todavía no tenés su nombre, pediselo (una sola pregunta).\n4. CONFIRMÁ ANTES DE RESERVAR — paso obligatorio, no opcional: repetile el día completo (no en\n   formato ISO), la hora, la cancha y el nombre en una frase, y preguntale \"¿confirmás?\" o\n   equivalente. NO llames a `reservar_turno` en este mensaje. Un horario mal escuchado o mal\n   transcripto (los audios se transcriben solos y a veces fallan) es mucho más barato de\n   corregir ACÁ, antes de que exista una reserva, que después.\n   Ej.: \"Te reservo el sábado 22 de agosto a las 22:00 en la Cancha 1, a nombre de Martín.\n   ¿Confirmás?\"\n5. Recién cuando el cliente confirma ese mensaje exacto (un \"sí\", \"dale\", \"confirmo\" o\n   equivalente), llamá a `reservar_turno` EN ESE MISMO turno de conversación — ahí sí aplica no\n   seguir charlando con la reserva \"en la cabeza\". Si el cliente corrige algo en vez de\n   confirmar (\"no, a las 10\" / \"mejor la cancha 2\"), NO reserves nada todavía: repetí la\n   confirmación actualizada con el dato corregido y esperá el \"sí\" de nuevo.\n6. `reservar_turno`. La respuesta trae el turno con un código y los minutos que tiene para señar.\n7. `datos_de_pago` y seguí igual que el Camino 1 desde el paso 2.\n8. Si `reservar_turno` devuelve `slot_ocupado`: se lo tomaron mientras charlaban. Decilo sin\n   vueltas, volvé a llamar a `ver_disponibilidad` y ofrecé alternativas en el mismo mensaje.\n9. Si devuelve `limite_turnos`: decile que ya tiene turnos tomados y que para sumar otro hable\n   con el complejo, y `derivar_a_humano`.\n10. Si el cliente corrige día, hora o cancha DESPUÉS de que ya reservaste (`reservar_turno` ya\n    devolvió un turno) pero TODAVÍA no mandó el comprobante de esa reserva: `cancelar_turno` del\n    que quedó mal, y recién ahí volvé al paso 4 con el dato corregido. Nunca dejes dos turnos\n    pendientes tuyos al mismo tiempo por una corrección — el cliente se confunde y vos también.\n\n=== QUÉ HACER CUANDO NO HAY LUGAR (no cortes la charla) ===\nQue un horario no esté libre casi nunca es el final de la conversación. Antes de decir \"no hay\",\nbuscá una alternativa y ofrecela en el MISMO mensaje:\n- Pidió una hora puntual y está ocupada → ofrecé las de antes y después del mismo día.\n- `ver_disponibilidad` devuelve `totalLibres: 0` con `motivoSinLugar: \"todo_ocupado\"` → ese\n  día está lleno. Consultá el día anterior y el siguiente y ofrecé lo que aparezca.\n- `motivoSinLugar: \"el_dia_ya_paso\"` → no es que esté lleno: se terminó el día. No digas \"no\n  tenemos lugar\", decí que para hoy ya no quedan horarios y ofrecé mañana.\n- La herramienta devuelve `hora_no_habilitada` con `horariosPublicados` → el complejo no abre a\n  esa hora. Decile a qué hora abre y ofrecele los dos horarios más cercanos al que pidió.\n- La herramienta devuelve `fecha_pasada` → te equivocaste vos de fecha, no el cliente. Mirá el\n  campo `hoy` de la respuesta, recalculá y volvé a llamar. NO le pidas al cliente que repita el\n  día ni le digas que la fecha está mal: no fue él.\n\n=== CAMINO 3 — CONSULTA O CANCELA SUS TURNOS ===\n1. `mis_turnos`. Listá lo que devuelva, corto: día, hora y cancha.\n2. Si no tiene ninguno, decíselo y ofrecele reservar.\n3. Para cancelar: confirmá cuál es (si hay más de uno) y llamá a `cancelar_turno` con ese\n   bookingId.\n4. Si devuelve `fuera_de_ventana`: decile que faltan menos horas de las que pide el complejo para\n   cancelar por acá, y `derivar_a_humano`. NO lo canceles igual.\n5. Si devuelve `turno_fijo`: los turnos fijos los maneja el complejo. `derivar_a_humano`.\n6. Sobre la seña de un turno cancelado, repetí lo que dice el campo `sena.mensaje` de la\n   herramienta y NADA MÁS. No agregues, no interpretes, no prometas.\n\n=== CAMINO 4 — PREGUNTA PRECIOS, HORARIOS O CÓMO LLEGAR ===\n1. `info_complejo`. Contestá SOLO con lo que trae: dirección, horario, canchas, precio de día y\n   de noche, porcentaje de seña.\n2. Si preguntan algo que no está ahí, decí en una línea que eso lo confirma el complejo, y\n   `derivar_a_humano`.\n\n=== SI HAY MÁS DE UN TURNO PENDIENTE ===\n- Listá como mucho 3, con día, hora y cancha, y preguntá cuál. Nunca elijas vos.\n- Si hay más de 3, no listes nada: `derivar_a_humano` con motivo \"varios turnos pendientes\".\n\n=== CUÁNDO DERIVAR ===\nLlamá a `derivar_a_humano` en el mismo turno cuando:\n- Piden devolución de la seña, un descuento, un precio especial o factura.\n- Quieren cambiar un turno de día, de hora o de cancha. Vos no movés turnos: solo reservás y\n  cancelás. Si insisten, se lo pasás al complejo.\n- Es un turno fijo, un torneo, un cumpleaños o un alquiler de varias horas seguidas.\n- Reclaman, se quejan, o hubo un problema con un turno anterior.\n- Piden hablar con una persona o con el dueño.\n- Pagaron y el sistema no pudo confirmar el turno.\n- Preguntan algo del complejo que ninguna herramienta te contesta.\n- Repetiste dos veces lo mismo y la conversación no avanza.\nAl derivar, decile en una línea que el complejo sigue la charla por acá. Si el CONTEXTO dice\n`dentro_horario: false`, aclarale desde qué hora responden.\n\n⚠️ CUÁNDO **NO** DERIVAR — leelo con la misma atención que lo de arriba:\nDerivar de más es tan malo como no derivar nunca: el complejo puso el bot justamente para no\ntener que atender cada \"¿tenés cancha el sábado?\". Reservar un turno es tu trabajo, no una\nexcepción.\n- NO derives por una consulta de disponibilidad, por más rara que suene. Llamá a la herramienta.\n- NO derives porque no haya lugar. Ofrecé alternativas (ver la sección de arriba).\n- NO derives en el primer intercambio de la conversación, salvo que pidan expresamente hablar con\n  una persona o sea un reclamo.\n- NO derives porque una herramienta falló UNA vez. Volvé a intentarla. Si falla dos veces\n  seguidas, ahí sí: decile que hubo un inconveniente y derivá.\n- NO derives sin haber llamado antes a la herramienta que corresponde. \"Te paso con el complejo\"\n  sin haber consultado disponibilidad es la peor respuesta posible: le hiciste perder el tiempo\n  al cliente y al complejo.\n\n=== CÓMO TRADUCIR LO QUE DICE EL CLIENTE ===\n\nFECHAS. Van SIEMPRE como AAAA-MM-DD, y salen SIEMPRE de la lista de equivalencias del principio.\n- \"hoy\", \"ahora\", \"esta noche\", \"más tarde\" → la fecha de hoy.\n- \"mañana\", \"pasado\", \"el finde\" → miralo en la lista.\n- Un día de la semana suelto (\"el sábado\", \"el martes\") es SIEMPRE el próximo que viene, nunca el\n  que pasó. Si hoy es sábado y dice \"el sábado\", preguntale si es hoy o el que viene.\n- \"el 12\", \"el 3 de septiembre\" → el mes en curso si todavía no pasó; el mes siguiente si ya pasó.\n- \"la semana que viene\" sin día → preguntale qué día. Es lo único ambiguo de verdad.\n- Si el cliente da una fecha que ya pasó, no le discutas la fecha: preguntale si se refería a la\n  del año que viene o a otra, en una línea.\n- NUNCA escribas un año que no salga de la lista. Si dudás, usá la fecha de hoy.\n\nHORAS. Van SIEMPRE como HH:MM en 24 horas.\n- \"14hs\", \"las 14\", \"2 de la tarde\" → \"14:00\".\n- \"9 de la noche\", \"21\" → \"21:00\". \"9 de la mañana\" → \"09:00\".\n- \"a la tarde\" → mostrá los horarios de la tarde, no elijas uno vos.\n- \"a la noche\" → de las 19:00 en adelante.\n- \"temprano\" / \"tarde\" → mostrá los primeros o los últimos del día.\n- Si pide un horario que no es exacto (\"9 y media\") → no existe: ofrecé el de antes y el de\n  después.\n\nDATOS INTERNOS. El `bookingId` y el `canchaId` los copiás EXACTAMENTE como vinieron de una\nherramienta. Nunca los inventes, nunca los abrevies, nunca los deduzcas. Y nunca se los muestres\nal cliente: él conoce su turno por el día, la hora y el código de 6 caracteres.\n\nY los ids DURAN POCO: solo los tenés mientras estás viendo la respuesta que los trajo. Un\nmensaje después ya no los tenés. Cuando pase eso:\n- Para reservar: dejá `canchaId` vacío y mandá el NOMBRE en `cancha` (\"Cancha 1\"). El sistema la\n  reconoce por el nombre.\n- Para cancelar: mandá el `codigo` de 6 caracteres, o llamá primero a `mis_turnos`.\n- Lo que NUNCA hacés es armar un id vos. `cancha_1` no es un id: es una invención, y la reserva\n  falla. Si una herramienta devuelve la lista de canchas con sus ids, elegí de ahí y llamala de nuevo.\n\n=== REGLAS TÉCNICAS DE LAS HERRAMIENTAS ===\n- Para los campos que el cliente todavía no dio, mandá texto vacío. NUNCA escribas la palabra null.\n- Los mensajes que arrancan con \"[Sistema]\" no los escribió el cliente: son avisos internos. No los\n  repitas ni los cites textual. Hacé lo que dicen y contestale al cliente en tus palabras.\n- Si una herramienta devuelve un error que no está contemplado acá, volvé a intentarla una vez. Si\n  falla de nuevo, decile que hubo un inconveniente y `derivar_a_humano`.\n- Nunca le muestres al cliente el nombre de un error, un código interno ni un mensaje de sistema.\n- Si una herramienta FALLA, no contestes como si te hubiera respondido. Nunca digas \"listo, te lo\n  reservé\" ni \"te lo guardo\" si `reservar_turno` no te devolvió el turno con su código: si falló, no\n  hay turno, y el cliente se va a presentar en una cancha que no tiene reservada. Decir 'a las 14 no tengo\n  libre' cuando `ver_disponibilidad` falló no es una respuesta prudente: es inventada, porque no\n  sabés si hay lugar. Reintentá una vez; si vuelve a fallar, decile que hubo un inconveniente y\n  derivá.\n\n=== ASÍ SE VE UNA BUENA CONVERSACIÓN ===\n\nCliente: \"hola, para hoy a las 14 tenés?\"\n→ Llamás `ver_disponibilidad` con la fecha de hoy y hora \"14:00\". NO preguntás nada primero: ya\n  te dio día y hora.\n→ \"Hola! A las 14 tengo la Cancha 2 libre, $18.000. ¿Te la reservo?\"\n\nCliente: \"no, mejor el sábado a la noche\"\n→ `ver_disponibilidad` del sábado (de la lista de equivalencias).\n→ \"El sábado a la noche me quedan 21:00 y 22:00 en la Cancha 1, $22.000. ¿Cuál te sirve?\"\n\nCliente: \"las 21\"\n→ \"Buenísimo. ¿A nombre de quién la pongo?\"\n\nCliente: \"Martín\"\n→ \"Te reservo el sábado 21:00 en la Cancha 1, a nombre de Martín. ¿Confirmás?\"\n\nCliente: \"sí, dale\"\n→ `reservar_turno`, después `datos_de_pago`.\n→ \"Listo Martín, sábado 21:00 en la Cancha 1. Te la guardo 60 minutos con la seña de $11.000:\n   alias complejo.la.plata, CBU 000..., a nombre de Juan Pérez. Mandame el comprobante por acá y\n   te la confirmo.\"\n\nLo que NO va, con el motivo:\n✗ \"Ahora te paso con el complejo\" apenas pidió un horario → no consultaste nada, derivaste de más.\n✗ \"¿Para qué día buscás?\" cuando ya dijo \"para hoy\" → le estás haciendo repetir lo que dijo.\n✗ \"No hay lugar\" a secas → siempre ofrecé la alternativa en el mismo mensaje.\n✗ Nombrar la fecha como \"2026-08-08\" → hablá como una persona: \"el sábado\".\n✗ Decir que un horario está ocupado cuando la herramienta devolvió error → no lo consultaste, te\n  lo imaginaste.\n✗ Llamar `reservar_turno` apenas el cliente dice un horario, sin repetírselo y esperar el sí →\n  un horario mal escuchado (sobre todo en un audio) se convierte en una reserva mal hecha, y\n  corregirla después de creada es peor que haber preguntado antes.\n\n=== CONTEXTO DE ESTA CONVERSACIÓN (dato del sistema, ya verificado) ===\n{{ $('Preparar Datos').item.json.contexto }}"
+        }
+      },
+      "id": "2784c83a-4299-4776-9d77-abc01a831c68",
+      "name": "Asistente Canchas",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        10832,
+        -1024
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "ed20218e-f672-403d-bebe-ea07f5a2bdeb",
+      "name": "OpenAI Canchas",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        10640,
+        -768
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "UTJYQgYNqcGips4x",
+          "name": "OpenAi account"
+        }
+      },
+      "notes": "gpt-4.1 y no gpt-4.1-mini: este agente encadena 7 herramientas y maneja plata. Si el costo molesta, bajalo a mini desde acá — es el primer lugar donde mirar si empieza a equivocarse de fecha o a derivar de más."
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=cancha:{{ $('Preparar Datos').item.json.sessionId }}:{{ $('Estado de Sesion').first().json.session_suffix || '0' }}"
+      },
+      "id": "40497ce2-01cf-4786-a281-ebcb2db3e2ce",
+      "name": "Redis Chat Memory Canchas",
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        10768,
+        -768
+      ],
+      "credentials": {
+        "redis": {
+          "id": "oectECWs8qNv8Mki",
+          "name": "Redis Gianni"
+        }
+      },
+      "notes": "Misma credencial de Redis que los nodos del buffer. El session_suffix cambia con cada derivación: al reactivar el bot, la conversación arranca limpia sin borrar nada a mano."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Datos del complejo: dirección, ciudad, horario de atención, canchas con sus precios de día y de noche, porcentaje de seña y horas mínimas para cancelar. Llamala antes de responder CUALQUIER pregunta sobre precios, ubicación u horarios. Nunca contestes eso de memoria.",
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "info_complejo"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bfed0803-1d25-4949-833a-2546fd3b3fb9",
+      "name": "info_complejo",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        10912,
+        -768
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "notes": "Sin parámetros: es la fuente contra la que el prompt obliga a contrastar.\n\nElegí la credencial \"API TuCan Canchas\" (Header Auth · Name: x-api-key). Si queda la de Chatwoot, todo devuelve 401 \"No autorizado\"."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Horarios libres de un día, o de un rango de hasta 7 días. Devuelve cada cancha con sus horarios disponibles, el precio ya calculado según sea de día o de noche, y la seña. Llamala SIEMPRE antes de reservar y SIEMPRE antes de decir que no hay lugar. Los horarios que ya pasaron no aparecen. La respuesta trae el campo hoy: si no coincide con la fecha que mandaste, recalculá.",
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "disponibilidad"
+            },
+            {
+              "name": "fecha",
+              "value": "={{ $fromAI('fecha', 'Fecha a consultar en formato AAAA-MM-DD. Sale de la lista de equivalencias del system prompt, nunca de lo que creas recordar: mandar un año equivocado hace fallar la consulta entera. Si el cliente no dijo ninguna fecha, enviá texto vacío y se usa hoy.', 'string', '') }}"
+            },
+            {
+              "name": "fechaHasta",
+              "value": "={{ $fromAI('fechaHasta', 'Ultima fecha del rango, AAAA-MM-DD, si el cliente pregunta por varios dias (ej: el finde). Maximo 7 dias desde fecha. Si pregunta por un solo dia, enviá texto vacío.', 'string', '') }}"
+            },
+            {
+              "name": "canchaId",
+              "value": "={{ $fromAI('canchaId', 'Id de una cancha puntual si el cliente ya eligio cancha, copiado exacto de una respuesta anterior. Si no lo tenés a la vista, enviá texto vacío y usá el campo cancha.', 'string', '') }}"
+            },
+            {
+              "name": "cancha",
+              "value": "={{ $fromAI('cancha', 'Nombre de la cancha tal como se lo dijiste al cliente, por ejemplo \"Cancha 1\". Sirve cuando ya no tenés el id a la vista: el sistema la reconoce por el nombre. Solo si el cliente pidio una cancha puntual.', 'string', '') }}"
+            },
+            {
+              "name": "hora",
+              "value": "={{ $fromAI('hora', 'Horario puntual en formato HH:MM de 24 horas, si el cliente pregunta por una hora especifica. Si no, enviá texto vacío.', 'string', '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "143c9884-d21e-46a6-a891-85ac29a7dce2",
+      "name": "ver_disponibilidad",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        11056,
+        -768
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "notes": "Elegí la credencial \"API TuCan Canchas\" (Header Auth · Name: x-api-key). Si queda la de Chatwoot, todo devuelve 401 \"No autorizado\"."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Reserva el turno. Queda TOMADO PERO SIN CONFIRMAR y vence en los minutos que devuelve el campo expiraEn: se confirma recién cuando llega el comprobante de la seña. Devuelve un código de 6 caracteres. Solo usala con un horario que viste libre en ver_disponibilidad. La cancha va por id (copiado exacto) o, si no lo tenés a la vista, por nombre en el campo cancha. Si devuelve cancha_inexistente o cancha_ambigua, la respuesta trae la lista de canchas con sus ids: elegí de ahí y volvé a llamar.",
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "reservar"
+            },
+            {
+              "name": "telefono",
+              "value": "={{ $('Preparar Datos').item.json.phoneNumber }}"
+            },
+            {
+              "name": "fecha",
+              "value": "={{ $fromAI('fecha', 'Fecha del turno en formato AAAA-MM-DD, la misma que usaste en ver_disponibilidad. Sale de la lista de equivalencias del system prompt.', 'string', '') }}"
+            },
+            {
+              "name": "hora",
+              "value": "={{ $fromAI('hora', 'Horario del turno en formato HH:MM de 24 horas, copiado exacto de la disponibilidad.', 'string', '') }}"
+            },
+            {
+              "name": "canchaId",
+              "value": "={{ $fromAI('canchaId', 'Id de la cancha, copiado EXACTO de una respuesta de ver_disponibilidad de ESTA MISMA ejecución. Si no lo tenés a la vista, NO lo inventes ni lo armes vos: enviá texto vacío y mandá el nombre en el campo cancha.', 'string', '') }}"
+            },
+            {
+              "name": "cancha",
+              "value": "={{ $fromAI('cancha', 'Nombre de la cancha tal como se lo dijiste al cliente, por ejemplo \"Cancha 1\". Sirve cuando ya no tenés el id a la vista: el sistema la reconoce por el nombre.', 'string', '') }}"
+            },
+            {
+              "name": "nombre",
+              "value": "={{ $fromAI('nombre', 'Nombre del cliente. Si todavia no te lo dio, preguntaselo antes de llamar a esta herramienta.', 'string', '') }}"
+            },
+            {
+              "name": "notas",
+              "value": "={{ $fromAI('notas', 'Aclaracion breve del cliente sobre el turno, si dijo alguna. Si no, enviá texto vacío.', 'string', '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "374edb53-c2e4-4ef9-b648-18077965a36e",
+      "name": "reservar_turno",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        11200,
+        -768
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "notes": "Elegí la credencial \"API TuCan Canchas\" (Header Auth · Name: x-api-key). Si queda la de Chatwoot, todo devuelve 401 \"No autorizado\"."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Alias, CBU, titular de la cuenta y monto exacto de la seña de un turno. Llamala apenas tengas el turno reservado. Copiá los datos EXACTAMENTE como vienen: un CBU mal copiado es plata que se va a otra cuenta.",
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "datos_de_pago"
+            },
+            {
+              "name": "telefono",
+              "value": "={{ $('Preparar Datos').item.json.phoneNumber }}"
+            },
+            {
+              "name": "bookingId",
+              "value": "={{ $fromAI('bookingId', 'Id del turno, copiado EXACTO de reservar_turno, de mis_turnos o del contexto. Nunca lo inventes.', 'string', '') }}"
+            },
+            {
+              "name": "codigo",
+              "value": "={{ $fromAI('codigo', 'Codigo de 6 caracteres de la reserva, si el cliente lo dijo y no tenes el bookingId. Si tenes el bookingId, enviá texto vacío.', 'string', '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "66c6720b-06e7-4171-8350-be7b9b2258c2",
+      "name": "datos_de_pago",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        11328,
+        -768
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "notes": "Elegí la credencial \"API TuCan Canchas\" (Header Auth · Name: x-api-key). Si queda la de Chatwoot, todo devuelve 401 \"No autorizado\"."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Turnos de este cliente: los que estan sin confirmar y los confirmados, con dia, hora, cancha, saldo y si se pueden cancelar por chat. Llamala SIEMPRE antes de hablar de un turno suyo, de moverlo o de cancelarlo.",
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "mis_turnos"
+            },
+            {
+              "name": "telefono",
+              "value": "={{ $('Preparar Datos').item.json.phoneNumber }}"
+            },
+            {
+              "name": "codigo",
+              "value": "={{ $fromAI('codigo', 'Codigo de 6 caracteres de la reserva, si el cliente lo menciono. Si no, enviá texto vacío.', 'string', '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0ebf1819-6d8e-4ab2-bb9d-7d47d640786f",
+      "name": "mis_turnos",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        11472,
+        -768
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "notes": "El teléfono viene del webhook: el modelo no puede pedir los turnos de otra persona.\n\nElegí la credencial \"API TuCan Canchas\" (Header Auth · Name: x-api-key). Si queda la de Chatwoot, todo devuelve 401 \"No autorizado\"."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Cancela un turno del cliente y libera el horario. Solo funciona con turnos suyos y con la anticipacion que pide el complejo. Si devuelve fuera_de_ventana o turno_fijo, NO lo canceles: deriva. Sobre la seña, repetí el campo sena.mensaje tal cual y no agregues nada.",
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "cancelar_turno"
+            },
+            {
+              "name": "telefono",
+              "value": "={{ $('Preparar Datos').item.json.phoneNumber }}"
+            },
+            {
+              "name": "bookingId",
+              "value": "={{ $fromAI('bookingId', 'Id del turno a cancelar, copiado EXACTO de mis_turnos. Si el cliente tiene mas de uno, preguntale cual antes de llamar.', 'string', '') }}"
+            },
+            {
+              "name": "codigo",
+              "value": "={{ $fromAI('codigo', 'Codigo de 6 caracteres de la reserva, si el cliente lo menciono. Ayuda a encontrar el turno cuando no tenés el bookingId a la vista.', 'string', '') }}"
+            },
+            {
+              "name": "motivo",
+              "value": "={{ $fromAI('motivo', 'Motivo breve que dio el cliente. Si no dijo ninguno, enviá texto vacío.', 'string', '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2960c4a-18e3-4211-92b9-8d66a4b33b69",
+      "name": "cancelar_turno",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        11616,
+        -768
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "notes": "La pertenencia se valida del lado del servidor: un bookingId ajeno devuelve 403 aunque el modelo se lo invente.\n\nElegí la credencial \"API TuCan Canchas\" (Header Auth · Name: x-api-key). Si queda la de Chatwoot, todo devuelve 401 \"No autorizado\"."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Pasa la conversacion al complejo y te pausa 24 horas con ese cliente. Llamala en el MISMO turno en que se lo anunciás. Usala ante cualquier duda: plata que vuelve, reclamos, cambios de turno, turnos fijos, torneos, o cuando la charla se traba.",
+        "method": "POST",
+        "url": "https://lfdcoaypmuvenmeqbroo.supabase.co/functions/v1/bot",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "accion",
+              "value": "derivar"
+            },
+            {
+              "name": "telefono",
+              "value": "={{ $('Preparar Datos').item.json.phoneNumber }}"
+            },
+            {
+              "name": "nombre",
+              "value": "={{ $('Preparar Datos').item.json.pushName }}"
+            },
+            {
+              "name": "motivo",
+              "value": "={{ $fromAI('motivo', 'En una frase, que necesita esta persona. Lo lee el complejo para saber con que se encuentra.', 'string', 'Consulta para el complejo') }}"
+            },
+            {
+              "name": "bookingId",
+              "value": "={{ $fromAI('bookingId', 'Id del turno involucrado, si la consulta es sobre uno. Si no, enviá texto vacío.', 'string', '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e56f8ed8-b172-4a58-9d37-d0da7e7e8b10",
+      "name": "derivar_a_humano",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        11760,
+        -768
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "K1qJfdFVVgi42zeK",
+          "name": "API TuCan Canchas"
+        }
+      },
+      "notes": "Elegí la credencial \"API TuCan Canchas\" (Header Auth · Name: x-api-key). Si queda la de Chatwoot, todo devuelve 401 \"No autorizado\"."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://app.codearg.ar/api/v1/accounts/{{ $('Normalizar Entrada').first().json.accountId }}/conversations/{{ $('Normalizar Entrada').first().json.conversationId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{ $json.output || 'Uy, se me trabó algo acá. ¿Me lo repetís en un momento?' }}"
+            },
+            {
+              "name": "message_type",
+              "value": "outgoing"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6acf4ddb-2634-484c-8f6b-e01fa5e73ad6",
+      "name": "Enviar Respuesta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        11200,
+        -1024
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WXsGTaNnkqIlEF3v",
+          "name": "TOKEN BOT MASIBER"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chatwoot Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Entrada": {
+      "main": [
+        [
+          {
+            "node": "Anti-Bucle (incoming)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anti-Bucle (incoming)": {
+      "main": [
+        [
+          {
+            "node": "Estado de Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estado de Sesion": {
+      "main": [
+        [
+          {
+            "node": "Bot en pausa?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bot en pausa?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Tipo de Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo de Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Preparar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Descargar Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Comprobante",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder No Soportado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribir con Whisper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribir con Whisper": {
+      "main": [
+        [
+          {
+            "node": "Preparar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Comprobante": {
+      "main": [
+        [
+          {
+            "node": "Hay turno para cobrar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay turno para cobrar?": {
+      "main": [
+        [
+          {
+            "node": "Descargar Adjunto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Sin Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Adjunto": {
+      "main": [
+        [
+          {
+            "node": "Subir a Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir a Storage": {
+      "main": [
+        [
+          {
+            "node": "Confirmar Reserva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar Reserva": {
+      "main": [
+        [
+          {
+            "node": "Preparar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Datos": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en Buffer": {
+      "main": [
+        [
+          {
+            "node": "Marcar Ultimo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar Ultimo": {
+      "main": [
+        [
+          {
+            "node": "Esperar 8s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar 8s": {
+      "main": [
+        [
+          {
+            "node": "Leer Ultimo Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Ultimo Id": {
+      "main": [
+        [
+          {
+            "node": "Es el ultimo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es el ultimo?": {
+      "main": [
+        [
+          {
+            "node": "Leer Buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Buffer": {
+      "main": [
+        [
+          {
+            "node": "Limpiar Buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar Buffer": {
+      "main": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asistente Canchas": {
+      "main": [
+        [
+          {
+            "node": "Enviar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Canchas": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory Canchas": {
+      "ai_memory": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "info_complejo": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ver_disponibilidad": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "reservar_turno": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "datos_de_pago": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mis_turnos": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cancelar_turno": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "derivar_a_humano": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente Canchas",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "timezone": "America/Argentina/Buenos_Aires",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "id": "ZNMrgdxH8mWC3wan",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [],
+  "pinData": {},
+  "active": true,
+  "versionId": "903cb9bd-6786-43e2-bc26-151c2bbe9d38"
+}

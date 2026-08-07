@@ -1,39 +1,61 @@
-# Contrato del repositorio
+# Repositorio — cómo se persisten los datos
 
-Cualquier backend nuevo (por ejemplo `supabaseRepo.js`) implementa esta misma
-forma. `StoreProvider` solo conoce esta interfaz, nunca `localStorage` directamente.
+`StoreProvider` no sabe dónde viven los datos. Solo conoce esta interfaz, y hoy
+la implementa `supabaseRepo.js`. (Hasta la migración a Supabase había un
+`localStorageRepo.js` con el mismo contrato; se borró cuando dejó de usarse.)
 
 ```js
-{
-  // Sincrónico. Devuelve el estado ya migrado, o null si no hay nada guardado
-  // / estaba corrupto. Un backend async (ej. Supabase) puede devolver
-  // siempre null acá y resolver la carga real en `load()`.
+createSupabaseRepo({ tenantId, onError, onResyncNeeded }) => {
+  // Caché local del complejo (`tucan:cache:<tenantId>`). Puede estar vieja o no
+  // existir: sirve para que la app pinte al instante mientras `load()` viaja.
+  // NUNCA es la fuente de verdad.
   loadSync(): State | null,
 
-  // Async, opcional. Si existe, StoreProvider muestra un splash mientras
-  // resuelve y despacha `store/hydrate` con el resultado.
-  load?(): Promise<State>,
+  // Estado completo desde la base, con la forma exacta de `createEmptyState()`.
+  load(): Promise<State>,
 
-  // Se llama después de cada acción exitosa, con el estado siguiente y el
-  // anterior. En localStorage es un debounce + write. En un backend real
-  // sería la llamada de red (y acá es donde se manejaría el optimistic
-  // rollback si la llamada falla).
-  save(nextState: State, prevState: State): void,
+  // Manda a la base lo que cambió entre los dos estados.
+  save(nextState, prevState): void,
 
-  // Fuerza cualquier escritura pendiente. Se llama en pagehide/visibilitychange
-  // para no perder el último cambio si el usuario cierra la pestaña rápido.
-  flush(nextState: State): void,
+  // Refresca la caché local. No fuerza nada remoto: las escrituras ya salieron.
+  flush(nextState): void,
 
+  // Espera a que se vacíe la cola de escrituras. Para tests.
+  idle(): Promise<void>,
+
+  // ¿Quedan escrituras propias en vuelo?
+  estaOcupado(): boolean,
+
+  // Borra la caché local de este complejo.
   clear(): void,
+
+  // Avisa cuando cambia cualquier fila del complejo (otro empleado, la página
+  // pública o el bot de n8n). Devuelve la función para desuscribirse.
+  suscribirCambios(callback): () => void,
 }
 ```
 
-## Para cambiar de backend
+## Las dos reglas que sostienen todo esto
 
-1. Escribir `repository/supabaseRepo.js` con esta forma.
-2. En `store/index.js`, cambiar qué repo se exporta como `repo`.
-3. Nada en `hooks.js`, `selectors.js` ni en ningún componente cambia.
+**1. `save()` deduce los borrados comparando `prev` contra `next`.** Por eso
+`prev` tiene que ser el último estado que la base confirmó, no el render
+anterior. Si se le pasa un estado que el servidor nunca vio —por ejemplo la
+caché local justo antes de hidratar— todo lo que el servidor tiene y ese estado
+no tiene se interpreta como borrado. `StoreProvider` mantiene esa disciplina con
+`ultimoSincronizadoRef`; no la relajes.
 
-El punto de todo esto es que las acciones (`actions.js`) son el contrato real:
-el reducer aplica optimista en local, y el repositorio decide qué hacer con
-esa acción hacia afuera.
+**2. Se compara el estado, no se mapea acción por acción.** Parece más directo
+traducir `BOOKING_CREATE` a un insert, pero no alcanza: `SALE_CREATE` además baja
+el stock de `products`, `CLIENT_DELETE` limpia la FK en `bookings` y
+`turnosFijos`, y el `id` del booking lo genera el reducer, no el action creator.
+Nada de eso está en el payload de la acción. El diff lo captura todo sin
+duplicar una sola regla de negocio (ver `diff.js`).
+
+## Para agregar una entidad nueva
+
+1. Tabla en una migración nueva, con `tenant_id`, PK `(tenant_id, id)`, RLS y las
+   policies del resto.
+2. Mapper `toRow`/`fromRow` en `mappers.js`, y sumarlo a `ORDEN_ESCRITURA`
+   **respetando las claves foráneas** (una venta no puede insertarse antes que el
+   turno al que apunta).
+3. Sumar la slice a `PERSIST_WHITELIST` en `schema.js` y traerla en `load()`.
