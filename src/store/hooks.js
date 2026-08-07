@@ -75,6 +75,15 @@ export const useBookingsForDate = (fecha) => useSelector(sel.selectBookingsForDa
 export const useBookingTotals = (booking) => useSelector(sel.selectBookingTotals, booking);
 
 export const useDayKpis = (fecha) => useSelector(sel.selectDayKpis, fecha);
+export const useBookingsForRange = (desde, hasta) => useSelector(sel.selectBookingsForRange, desde, hasta);
+export const useOcupacionPorDiaSemana = (desde, hasta, canchaId = null) =>
+  useSelector(sel.selectOcupacionPorDiaSemana, desde, hasta, canchaId);
+export const useDistribucionTurnosPorDia = (desde, hasta, canchaId = null) =>
+  useSelector(sel.selectDistribucionTurnosPorDia, desde, hasta, canchaId);
+export const useFijosVsOcasionalesPorSemana = (desde, hasta, canchaId = null) =>
+  useSelector(sel.selectFijosVsOcasionalesPorSemana, desde, hasta, canchaId);
+export const useNuevosVsRecurrentesPorSemana = (desde, hasta, canchaId = null) =>
+  useSelector(sel.selectNuevosVsRecurrentesPorSemana, desde, hasta, canchaId);
 export const useCajaDelDia = (fecha) => useSelector(sel.selectCajaDelDia, fecha);
 export const usePagosDelDia = (fecha) => useSelector(sel.selectPagosDelDia, fecha);
 
@@ -200,6 +209,14 @@ export function useBookingActions() {
         return { ok: true };
       },
 
+      confirmar: (id) => {
+        const actual = sel.selectBooking(state, id);
+        if (!actual) return { ok: false, error: 'El turno ya no existe.' };
+        if (actual.estado !== 'pendiente') return { ok: false, error: 'Ese turno ya está confirmado.' };
+        dispatch(actions.confirmBooking(id));
+        return { ok: true };
+      },
+
       eliminar: (id) => {
         dispatch(actions.deleteBooking(id));
         return { ok: true };
@@ -215,6 +232,11 @@ export function useBookingActions() {
 
       quitarPago: (bookingId, pagoId) => {
         dispatch(actions.removePayment(bookingId, pagoId));
+        return { ok: true };
+      },
+
+      validarPago: (bookingId, pagoId, userId) => {
+        dispatch(actions.validatePayment(bookingId, pagoId, userId));
         return { ok: true };
       },
 
@@ -396,7 +418,8 @@ export function useStoreMaintenance() {
   const dispatch = useAppDispatch();
   return useMemo(
     () => ({
-      reiniciarDemo: () => dispatch(actions.resetDemo()),
+      // `reiniciarDemo` se quitó junto con la acción `store/resetDemo`: contra
+      // una base real habría borrado los datos del complejo.
       importar: (state) => dispatch(actions.importData(state)),
     }),
     [dispatch]

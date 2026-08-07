@@ -91,6 +91,24 @@ export const todayISO = () => isoFmt.format(new Date());
 /** Timestamp completo para auditoría (`createdAt`, `fechaHora` de ventas). */
 export const nowISO = () => new Date().toISOString();
 
+/**
+ * Normaliza cualquier timestamp a la forma canónica `2026-08-05T12:00:00.000Z`.
+ *
+ * Postgres devuelve los `timestamptz` como `2026-08-05T12:00:00+00:00`. Es la
+ * misma instancia de tiempo, pero con otro texto — y varios selectores comparan
+ * o cortan estos valores como strings (`pago.fecha.slice(0, 10)`). Sin pasar
+ * todo por acá al leer de la base, el mismo pago se vería distinto según si
+ * vino del servidor o lo acaba de crear el reducer.
+ */
+export const toTimestampISO = (value) => (value ? new Date(value).toISOString() : null);
+
+/**
+ * Minutos que faltan para un timestamp. Negativo si ya pasó, `null` si no hay
+ * fecha. Lo usa la cuenta regresiva de los turnos sin confirmar.
+ */
+export const minutosPara = (value) =>
+  value ? Math.round((new Date(value).getTime() - Date.now()) / 60_000) : null;
+
 /** Hora actual en Argentina, `'21:14'`. */
 export const nowTime = () => timeFmt.format(new Date());
 

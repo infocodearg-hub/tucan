@@ -27,6 +27,7 @@ import {
   useToast,
   useConfig,
 } from '../store';
+import { usePuede } from '../auth/AuthProvider';
 import { iconForProduct, CATEGORIAS } from '../lib/catalog';
 import { formatARS, formatARSCompact } from '../lib/format';
 import { timestampToTime } from '../lib/date';
@@ -58,6 +59,9 @@ export default function CajaCantina() {
   const saleActions     = useSaleActions();
   const productActions  = useProductActions();
   const toast           = useToast();
+  // Sin permiso de borrado el botón no se muestra. La policy de la base ya
+  // rechaza el DELETE; esconderlo evita ofrecer algo que va a fallar.
+  const puedeEliminar   = usePuede('eliminar_registros');
   const { confirm, ConfirmDialogMount } = useConfirm();
 
   const [selectedCategory, setSelectedCategory] = useState('todas');
@@ -311,7 +315,7 @@ export default function CajaCantina() {
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
                       <div style={{
                         width: 28, height: 28, borderRadius: 8,
-                        background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.25)',
+                        background: 'rgb(from var(--green) r g b / 0.1)', border: '1px solid rgb(from var(--green) r g b / 0.25)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         <ProdIcon size={14} color="var(--green)" />
@@ -345,7 +349,7 @@ export default function CajaCantina() {
                     </span>
                     <div style={{
                       width: 22, height: 22, borderRadius: 7,
-                      background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)',
+                      background: 'rgb(from var(--green) r g b / 0.12)', border: '1px solid rgb(from var(--green) r g b / 0.3)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: 'var(--green)', fontWeight: 900, fontSize: '0.78rem',
                     }}>
@@ -419,7 +423,7 @@ export default function CajaCantina() {
               </div>
               <span style={{
                 fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: 99,
-                background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)',
+                background: 'rgb(from var(--green) r g b / 0.12)', border: '1px solid rgb(from var(--green) r g b / 0.3)', color: 'var(--green)',
               }}>
                 {cart.length} ítems
               </span>
@@ -474,8 +478,8 @@ export default function CajaCantina() {
                       <button
                         onClick={() => updateCartQty(item.id, 1)}
                         style={{
-                          width: 24, height: 24, borderRadius: 6, background: 'rgba(0,230,118,0.15)',
-                          border: '1px solid rgba(0,230,118,0.3)', color: 'var(--green)', cursor: 'pointer',
+                          width: 24, height: 24, borderRadius: 6, background: 'rgb(from var(--green) r g b / 0.15)',
+                          border: '1px solid rgb(from var(--green) r g b / 0.3)', color: 'var(--green)', cursor: 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800,
                         }}
                       >
@@ -511,10 +515,10 @@ export default function CajaCantina() {
                       padding: '7px 4px', borderRadius: 8, fontSize: '0.72rem', fontWeight: 800,
                       cursor: 'pointer', transition: 'all 0.15s ease',
                       textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
-                      background: paymentMethod === m.key ? 'rgba(0,230,118,0.15)' : 'var(--bg-input)',
-                      border: `1px solid ${paymentMethod === m.key ? 'rgba(0,230,118,0.4)' : 'var(--border-dim)'}`,
+                      background: paymentMethod === m.key ? 'rgb(from var(--green) r g b / 0.15)' : 'var(--bg-input)',
+                      border: `1px solid ${paymentMethod === m.key ? 'rgb(from var(--green) r g b / 0.4)' : 'var(--border-dim)'}`,
                       color: paymentMethod === m.key ? 'var(--green)' : 'var(--text-muted)',
-                      boxShadow: paymentMethod === m.key ? '0 0 10px rgba(0,230,118,0.15)' : 'none',
+                      boxShadow: paymentMethod === m.key ? '0 0 10px rgb(from var(--green) r g b / 0.15)' : 'none',
                     }}
                   >
                     {m.label}
@@ -555,7 +559,7 @@ export default function CajaCantina() {
           onClose={() => setProductModal(null)}
           producto={productModal === 'new' ? null : productModal}
           onSave={handleSaveProduct}
-          onDelete={handleDeleteProduct}
+          onDelete={puedeEliminar ? handleDeleteProduct : undefined}
         />
       )}
       {ConfirmDialogMount}

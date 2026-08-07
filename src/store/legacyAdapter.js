@@ -27,8 +27,12 @@ export function toLegacyBooking(state, booking) {
   const totals = selectBookingTotals(state, booking);
   const ventas = booking.esVirtual ? [] : selectSalesForBooking(state, booking.id);
 
+  // El orden importa y `pending` va segundo a propósito. Sin esa rama, un turno
+  // sin confirmar y sin un peso pagado caía por descarte en `partial`, o sea
+  // que la grilla lo mostraba como "Señado": justo lo contrario de lo que es.
   let status = 'partial';
   if (booking.estado === 'bloqueado') status = 'blocked';
+  else if (booking.estado === 'pendiente') status = 'pending';
   else if (booking.origenFijoId) status = 'fixed';
   else if (totals.estadoPago === 'pagado') status = 'paid';
 
@@ -51,6 +55,14 @@ export function toLegacyBooking(state, booking) {
     notes: booking.notas ?? '',
     isFixed: !!booking.origenFijoId,
     channel: booking.canal === 'bot_wa' ? 'bot_ai' : 'manual',
+    // Lo del turno sin confirmar viaja con nombres nuevos y no con los de la
+    // forma vieja: mockData nunca tuvo nada parecido, así que no hay a qué
+    // traducirlo.
+    estado: booking.estado,
+    codigo: booking.codigo ?? null,
+    expiraAt: booking.expiraAt ?? null,
+    // Plata que alguien dijo que mandó y que todavía nadie miró.
+    senaSinValidar: (booking.pagos ?? []).some((p) => p.validado === false),
     // Referencia al original — la usan los handlers para saber a qué
     // entidad del store aplicar la acción real.
     _source: booking,

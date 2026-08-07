@@ -9,8 +9,14 @@ import { toNumber } from './format.js';
 
 // ─────────────────────────────────────────────── turnos
 
-/** Ciclo de vida del turno (almacenado). */
+/**
+ * Ciclo de vida del turno (almacenado).
+ *
+ * `pendiente` es el turno que todavía no confirmó nadie: lo creó la web pública
+ * o el bot, ocupa el slot y vence solo. `reservado` significa confirmado.
+ */
 export const ESTADO = {
+  pendiente: 'pendiente',
   reservado: 'reservado',
   bloqueado: 'bloqueado',
   cancelado: 'cancelado',
@@ -30,6 +36,10 @@ export const ESTADO_PAGO_LABEL = {
 export function slotVariant(booking, estadoPago) {
   if (!booking) return 'libre';
   if (booking.estado === ESTADO.bloqueado) return 'bloqueado';
+  // Antes que `fijo` y antes que el pago: un turno sin confirmar puede
+  // desaparecer en cualquier momento, y eso manda sobre cualquier otra cosa
+  // que se pueda decir de él.
+  if (booking.estado === ESTADO.pendiente) return 'pendiente';
   if (booking.origenFijoId) return 'fijo';
   if (estadoPago === 'pagado') return 'pagado';
   if (estadoPago === 'senado') return 'senado';
@@ -38,6 +48,7 @@ export function slotVariant(booking, estadoPago) {
 
 export const VARIANT_LABEL = {
   libre: 'Libre',
+  pendiente: 'Sin confirmar',
   bloqueado: 'Bloqueado',
   fijo: 'Turno fijo',
   pagado: 'Pagado',

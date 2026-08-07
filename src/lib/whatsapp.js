@@ -120,15 +120,29 @@ export function msgCancelacion({ booking, cancha, config }) {
   ]);
 }
 
-/** Consulta desde la vista pública del jugador. */
-export function msgConsultaPublica({ cancha, fecha, hora, precio, sena, complejo }) {
+/**
+ * Mensaje con el que el jugador llega al WhatsApp del complejo después de
+ * reservar en la web.
+ *
+ * `Reserva #CODIGO` va en la PRIMERA línea y no al final, por dos motivos: es
+ * lo primero que lee la persona (o el bot) del otro lado, y si el jugador
+ * recorta el mensaje antes de mandarlo —cosa que pasa— lo que sobrevive es el
+ * principio. Ese código es el único vínculo confiable entre la reserva y el
+ * chat: el teléfono del formulario es opcional y casi nunca es el mismo número
+ * desde el que escribe.
+ */
+export function msgConsultaPublica({ cancha, fecha, hora, precio, sena, complejo, codigo, expiraEn }) {
   return nl([
-    '¡Hola! 👋 Quiero reservar un turno:',
+    codigo ? `Reserva #${codigo}` : null,
+    codigo ? '' : null,
+    '¡Hola! 👋 Reservé un turno y quiero confirmarlo:',
     '',
     `🗓️ ${formatMediumDate(fecha)}`,
     `🕒 ${hora} hs`,
     `⚽ ${cancha?.nombre ?? 'Cancha'}`,
     `💰 ${formatARS(precio)}${sena ? ` (seña ${formatARS(sena)})` : ''}`,
+    expiraEn ? '' : null,
+    expiraEn ? `⏳ Me guardan el horario ${expiraEn} minutos.` : null,
     complejo ? '' : null,
     complejo ? `Complejo: ${complejo}` : null,
   ]);

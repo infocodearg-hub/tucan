@@ -9,7 +9,6 @@
 
 export const T = {
   HYDRATE: 'store/hydrate',
-  RESET_DEMO: 'store/resetDemo',
   IMPORT: 'store/import',
 
   CONFIG_UPDATE: 'config/update',
@@ -22,8 +21,10 @@ export const T = {
   BOOKING_UPDATE: 'bookings/update',
   BOOKING_CANCEL: 'bookings/cancel',
   BOOKING_DELETE: 'bookings/delete',
+  BOOKING_CONFIRM: 'bookings/confirm',
   BOOKING_ADD_PAYMENT: 'bookings/addPayment',
   BOOKING_REMOVE_PAYMENT: 'bookings/removePayment',
+  BOOKING_VALIDATE_PAYMENT: 'bookings/validatePayment',
   BOOKING_MATERIALIZE_FIJO: 'bookings/materializeFijo',
 
   CLIENT_CREATE: 'clients/create',
@@ -59,7 +60,6 @@ export const T = {
 };
 
 export const hydrate = (state) => ({ type: T.HYDRATE, payload: state });
-export const resetDemo = () => ({ type: T.RESET_DEMO });
 export const importData = (state) => ({ type: T.IMPORT, payload: state });
 
 export const updateConfig = (patch) => ({ type: T.CONFIG_UPDATE, payload: patch });
@@ -71,6 +71,10 @@ export const deleteCancha = (id) => ({ type: T.CANCHA_DELETE, payload: { id } })
 export const createBooking = (booking) => ({ type: T.BOOKING_CREATE, payload: booking });
 export const updateBooking = (id, patch) => ({ type: T.BOOKING_UPDATE, payload: { id, patch } });
 export const cancelBooking = (id) => ({ type: T.BOOKING_CANCEL, payload: { id } });
+/** Turno sin confirmar → confirmado. Acción propia y no un patch genérico:
+ *  también hay que limpiar el vencimiento, y olvidarse de eso deja un turno
+ *  confirmado que el barrido cancela media hora después. */
+export const confirmBooking = (id) => ({ type: T.BOOKING_CONFIRM, payload: { id } });
 export const deleteBooking = (id) => ({ type: T.BOOKING_DELETE, payload: { id } });
 export const addPayment = (bookingId, pago) => ({
   type: T.BOOKING_ADD_PAYMENT,
@@ -79,6 +83,11 @@ export const addPayment = (bookingId, pago) => ({
 export const removePayment = (bookingId, pagoId) => ({
   type: T.BOOKING_REMOVE_PAYMENT,
   payload: { bookingId, pagoId },
+});
+/** Alguien del complejo miró el comprobante y dice que la plata está. */
+export const validatePayment = (bookingId, pagoId, userId) => ({
+  type: T.BOOKING_VALIDATE_PAYMENT,
+  payload: { bookingId, pagoId, userId },
 });
 export const materializeFijo = (booking) => ({
   type: T.BOOKING_MATERIALIZE_FIJO,

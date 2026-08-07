@@ -45,7 +45,18 @@ export function bookingsReducer(state, action) {
 
     case T.BOOKING_CANCEL:
       return state.map((b) =>
-        b.id === action.payload.id ? { ...b, estado: 'cancelado', updatedAt: nowISO() } : b
+        b.id === action.payload.id
+          ? { ...b, estado: 'cancelado', motivoCancelacion: 'mostrador', updatedAt: nowISO() }
+          : b
+      );
+
+    // El vencimiento se limpia junto con el estado: un turno confirmado que
+    // conserva su `expiraAt` lo cancela el barrido media hora más tarde.
+    case T.BOOKING_CONFIRM:
+      return state.map((b) =>
+        b.id === action.payload.id && b.estado === 'pendiente'
+          ? { ...b, estado: 'reservado', expiraAt: null, updatedAt: nowISO() }
+          : b
       );
 
     case T.BOOKING_DELETE:
@@ -54,8 +65,36 @@ export function bookingsReducer(state, action) {
     case T.BOOKING_ADD_PAYMENT:
       return state.map((b) => {
         if (b.id !== action.payload.bookingId) return b;
-        const pago = { id: genId('pay'), fecha: nowISO(), nota: '', ...action.payload.pago };
+        // `validado: true` por defecto: este pago lo carga alguien del complejo
+        // desde el panel, o sea que ya contó la plata. Los que nacen sin
+        // validar son los que inserta la Edge Function con un comprobante.
+        const pago = {
+          id: genId('pay'),
+          fecha: nowISO(),
+          nota: '',
+          validado: true,
+          ...action.payload.pago,
+        };
         return { ...b, pagos: [...(b.pagos ?? []), pago], updatedAt: nowISO() };
+      });
+
+    case T.BOOKING_VALIDATE_PAYMENT:
+      return state.map((b) => {
+        if (b.id !== action.payload.bookingId) return b;
+        return {
+          ...b,
+          pagos: (b.pagos ?? []).map((p) =>
+            p.id === action.payload.pagoId
+              ? {
+                  ...p,
+                  validado: true,
+                  validadoAt: nowISO(),
+                  validadoPor: action.payload.userId ?? null,
+                }
+              : p
+          ),
+          updatedAt: nowISO(),
+        };
       });
 
     case T.BOOKING_REMOVE_PAYMENT:

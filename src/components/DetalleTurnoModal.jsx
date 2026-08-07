@@ -11,7 +11,7 @@
 import React, { useState } from 'react';
 import {
   X, Calendar, ShoppingBag, CheckCircle2, Clock,
-  MessageSquare, Trash2, Plus, Pencil, Save, User, Phone,
+  MessageSquare, Trash2, Pencil, Save, User, Phone,
 } from 'lucide-react';
 import {
   useCanchasActivas,
@@ -19,8 +19,11 @@ import {
   useConfig,
 } from '../store';
 import { formatARS } from '../lib/format';
+import { minutosPara } from '../lib/date';
 import { useConfirm } from './ConfirmDialog';
+import { usePuede } from '../auth/AuthProvider';
 import { iconForProduct } from '../lib/catalog';
+import { supabase } from '../lib/supabase';
 
 export default function DetalleTurnoModal({
   booking,
@@ -30,6 +33,8 @@ export default function DetalleTurnoModal({
   onCancelBooking,
   onAddCantinaToBooking,
   onEditBooking,
+  onConfirmBooking,
+  onValidatePayment,
 }) {
   const [showAddCantina, setShowAddCantina] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -41,6 +46,7 @@ export default function DetalleTurnoModal({
   const canchas  = useCanchasActivas();
   const products = useProducts();
   const config   = useConfig();
+  const puedeGestionarTurnos = usePuede('gestionar_turnos');
 
   if (!isOpen || !booking) return null;
 
@@ -64,6 +70,12 @@ export default function DetalleTurnoModal({
   const cancha      = canchas.find((c) => c.id === booking.canchaId) ?? canchas[0];
   const balance     = (booking.totalPrice || 0) - (booking.depositPaid || 0);
   const isFullyPaid = balance <= 0;
+
+  const sinConfirmar = booking.estado === 'pendiente';
+  const minutosRestantes = minutosPara(booking.expiraAt);
+  // Los pagos sin validar salen del booking real, no de la forma vieja: la
+  // capa de compatibilidad aplana los pagos y perdería cuál es cuál.
+  const pagosSinValidar = (booking._source?.pagos ?? []).filter((p) => p.validado === false);
 
   const nombreComplejo = config?.complejo?.nombre ?? 'el complejo';
   const canchaNombre   = cancha?.nombre ?? booking.canchaId;
@@ -95,6 +107,28 @@ export default function DetalleTurnoModal({
       onCancelBooking(booking.id);
       onClose();
     }
+  };
+
+  const handleConfirmClick = async () => {
+    const ok = await confirm({
+      title: '¿Confirmar este turno?',
+      message:
+        `El turno de ${booking.clientName} (${booking.time} hs · ${canchaNombre}) deja de estar ` +
+        'sujeto a vencimiento y queda tomado. Hacelo cuando tengas la seña o el ok del cliente.',
+      confirmLabel: 'Sí, confirmar',
+      cancelLabel: 'Todavía no',
+    });
+    if (ok) onConfirmBooking?.(booking.id);
+  };
+
+  /**
+   * El comprobante vive en un bucket privado. La URL firmada se pide en el
+   * momento y dura 60 segundos: alcanza de sobra para abrir la pestaña y no
+   * deja un link que siga sirviendo si alguien lo copia.
+   */
+  const verComprobante = async (path) => {
+    const { data } = await supabase.storage.from('comprobantes').createSignedUrl(path, 60);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
   };
 
   // Productos activos del store, máx 6 en el picker rápido
@@ -196,16 +230,32 @@ export default function DetalleTurnoModal({
               <span style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>
                 Estado del Turno
               </span>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: 6,
-                background: isFullyPaid ? 'rgba(0,176,255,0.15)' : 'rgba(255,179,0,0.15)',
-                color: isFullyPaid ? 'var(--blue)' : 'var(--amber)',
-                border: `1px solid ${isFullyPaid ? 'rgba(0,176,255,0.3)' : 'rgba(255,179,0,0.3)'}`,
-              }}>
-                {isFullyPaid ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                {isFullyPaid ? 'Pagado 100%' : 'Señado (Pendiente)'}
-              </span>
+              {sinConfirmar ? (
+                <span className="badge badge-pending" style={{ fontSize: '0.72rem' }}>
+                  <Clock size={11} /> Sin confirmar
+                </span>
+              ) : (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: 6,
+                  background: isFullyPaid ? 'rgba(0,176,255,0.15)' : 'rgba(255,179,0,0.15)',
+                  color: isFullyPaid ? 'var(--blue)' : 'var(--amber)',
+                  border: `1px solid ${isFullyPaid ? 'rgba(0,176,255,0.3)' : 'rgba(255,179,0,0.3)'}`,
+                }}>
+                  {isFullyPaid ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                  {isFullyPaid ? 'Pagado 100%' : 'Señado (Pendiente)'}
+                </span>
+              )}
+              {sinConfirmar && (
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 5 }}>
+                  {minutosRestantes == null
+                    ? 'Esperando la seña'
+                    : minutosRestantes > 0
+                      ? `Se libera solo en ${minutosRestantes} min`
+                      : 'Venciendo — el horario se libera enseguida'}
+                  {booking.codigo ? ` · #${booking.codigo}` : ''}
+                </p>
+              )}
             </div>
 
             <div style={{ padding: '12px', borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-dim)' }}>
@@ -213,7 +263,7 @@ export default function DetalleTurnoModal({
                 Medio de Cobro
               </span>
               <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {booking.paymentMethod || 'Mercado Pago'}
+                {booking.paymentMethod || 'Transferencia'}
               </span>
             </div>
           </div>
@@ -259,6 +309,50 @@ export default function DetalleTurnoModal({
             </div>
           </div>
 
+          {/* Seña declarada por WhatsApp que todavía nadie miró.
+              El bot confirma el turno para que el cliente tenga respuesta al
+              instante, pero la plata no se da por buena hasta que alguien abre
+              el comprobante. Mientras tanto queda acá, visible y con nombre. */}
+          {pagosSinValidar.length > 0 && (
+            <div style={{
+              padding: '12px 14px', borderRadius: 12, marginBottom: 16,
+              background: 'rgb(245 165 36 / 0.06)', border: '1px dashed rgb(245 165 36 / 0.4)',
+            }}>
+              <p style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--color-partial-500)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Clock size={13} /> Seña sin validar
+              </p>
+              {pagosSinValidar.map((p) => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                  <span className="num" style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', minWidth: 0 }}>
+                    {formatARS(p.monto)}
+                  </span>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    {p.comprobantePath && (
+                      <button
+                        type="button"
+                        onClick={() => verComprobante(p.comprobantePath)}
+                        className="btn-secondary"
+                        style={{ padding: '5px 10px', fontSize: '0.72rem' }}
+                      >
+                        Ver comprobante
+                      </button>
+                    )}
+                    {puedeGestionarTurnos && (
+                      <button
+                        type="button"
+                        onClick={() => onValidatePayment?.(booking.id, p.id)}
+                        className="btn-primary"
+                        style={{ padding: '5px 12px', fontSize: '0.72rem' }}
+                      >
+                        <CheckCircle2 size={12} style={{ color: 'var(--on-accent)' }} /> Validar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Quick Cantina Picker */}
           {showAddCantina && (
             <div style={{
@@ -300,7 +394,20 @@ export default function DetalleTurnoModal({
 
           {/* Action Buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {!isFullyPaid && (
+            {/* El camino manual siempre tiene que existir: el bot se puede caer
+                y la seña se puede cobrar en efectivo en el mostrador. */}
+            {sinConfirmar && puedeGestionarTurnos && onConfirmBooking && (
+              <button
+                onClick={handleConfirmClick}
+                className="btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '11px', fontSize: '0.85rem' }}
+              >
+                <CheckCircle2 size={16} style={{ color: 'var(--on-accent)' }} />
+                Confirmar turno
+              </button>
+            )}
+
+            {!sinConfirmar && !isFullyPaid && (
               <button
                 onClick={() => { onSettleBooking(booking.id); onClose(); }}
                 className="btn-primary"
@@ -324,7 +431,7 @@ export default function DetalleTurnoModal({
               <button
                 onClick={handleWhatsApp}
                 className="btn-secondary"
-                style={{ justifyContent: 'center', padding: '9px', fontSize: '0.78rem', gap: 5, color: 'var(--green)', borderColor: 'rgba(0,230,118,0.3)' }}
+                style={{ justifyContent: 'center', padding: '9px', fontSize: '0.78rem', gap: 5, color: 'var(--green)', borderColor: 'rgb(from var(--green) r g b / 0.3)' }}
                 disabled={!booking.clientPhone}
               >
                 <MessageSquare size={14} />
@@ -332,17 +439,23 @@ export default function DetalleTurnoModal({
               </button>
             </div>
 
-            <button
-              onClick={handleCancelClick}
-              style={{
-                background: 'rgba(255,79,79,0.08)', border: '1px solid rgba(255,79,79,0.25)',
-                color: 'var(--red)', padding: '9px', borderRadius: 10, fontSize: '0.78rem', fontWeight: 800,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                marginTop: 4,
-              }}
-            >
-              <Trash2 size={14} /> Cancelar / Liberar Turno
-            </button>
+            {/* Cancelar un turno NO es un borrado: deja el registro con
+                estado 'cancelado'. Por eso el permiso que corresponde es
+                `gestionar_turnos` (el mismo que exige la policy de UPDATE en
+                `bookings`) y no `eliminar_registros`. */}
+            {puedeGestionarTurnos && (
+              <button
+                onClick={handleCancelClick}
+                style={{
+                  background: 'rgba(255,79,79,0.08)', border: '1px solid rgba(255,79,79,0.25)',
+                  color: 'var(--red)', padding: '9px', borderRadius: 10, fontSize: '0.78rem', fontWeight: 800,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  marginTop: 4,
+                }}
+              >
+                <Trash2 size={14} /> Cancelar / Liberar Turno
+              </button>
+            )}
           </div>
 
         </div>

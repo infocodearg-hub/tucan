@@ -7,15 +7,21 @@ import CajaCantina from './components/CajaCantina';
 import ClientesCRM from './components/ClientesCRM';
 import ReportesAnalytics from './components/ReportesAnalytics';
 import ConfiguracionComplejo from './components/ConfiguracionComplejo';
+import Derivaciones from './components/Derivaciones';
 import NuevoTurnoModal from './components/NuevoTurnoModal';
 import DetalleTurnoModal from './components/DetalleTurnoModal';
 import ToastViewport from './components/ToastViewport';
-import LoginScreen, { hasActiveSession, clearSession } from './components/LoginScreen';
+import LoginScreen from './components/LoginScreen';
+import OnboardingWizard from './components/OnboardingWizard';
+import { useAuth } from './auth/AuthProvider';
+import { puedeVerTab } from './auth/permisos';
+import { StoreProvider } from './store';
 
 import {
   useAppState,
   useBookingActions,
   useBookingsForDate,
+  useCanchas,
   useClients,
   useSaleActions,
   useSelectedDate,
@@ -26,6 +32,7 @@ import {
 } from './store';
 import { toLegacyBookings, toLegacyClient } from './store/legacyAdapter';
 import { normalizePhone } from './lib/phone';
+import { addDays, startOfWeek } from './lib/date';
 import {
   CalendarDays, ShoppingBag, BarChart3, Users, Repeat
 } from 'lucide-react';
@@ -39,34 +46,66 @@ const BOTTOM_NAV = [
   { id: 'reportes',     label: 'Reportes',    icon: BarChart3 },
 ];
 
+/**
+ * Puerta de entrada al panel: identidad primero, datos después.
+ *
+ * El orden importa. `StoreProvider` necesita saber de qué complejo son los datos
+ * antes de pedir nada, así que no se monta hasta que la membresía está resuelta.
+ */
 export default function App() {
-  // ─── Login gate ───
-  const [isLoggedIn, setIsLoggedIn] = useState(() => hasActiveSession());
+  const { cargando, session, tenantId, errorMembership, signOut } = useAuth();
 
-  const handleLogin = () => setIsLoggedIn(true);
+  if (cargando) return <PantallaSimple texto="Entrando…" />;
 
-  const handleLogout = () => {
-    clearSession();
-    setIsLoggedIn(false);
-  };
+  // Sin `<ToastViewport />` acá, y no es un olvido: los toasts leen del store,
+  // y el store todavía no existe (se monta recién cuando hay complejo resuelto,
+  // más abajo). Ponerlo rompe la pantalla entera con "useAppState debe usarse
+  // dentro de <StoreProvider>" — pantalla en blanco en el login, que es la
+  // primera que ve cualquiera. `LoginScreen` muestra sus propios errores en el
+  // formulario, así que no necesita toasts.
+  if (!session) return <LoginScreen />;
 
-  // Mostrar login si no hay sesión
-  if (!isLoggedIn) {
+  // Usuario válido pero sin complejo asignado (o suspendido). No es un error de
+  // la app: hay que decir qué pasa y ofrecer salir, no dejarlo en una pantalla
+  // vacía sin explicación.
+  if (errorMembership || !tenantId) {
     return (
-      <>
-        <LoginScreen onLogin={handleLogin} />
-        <ToastViewport />
-      </>
+      <PantallaSimple texto={errorMembership ?? 'Tu usuario no tiene un complejo asignado.'}>
+        <button type="button" className="btn-secondary" onClick={signOut} style={{ padding: '12px 20px' }}>
+          Cerrar sesión
+        </button>
+      </PantallaSimple>
     );
   }
 
-  return <AppInner onLogout={handleLogout} />;
+  return (
+    <StoreProvider tenantId={tenantId}>
+      <AppInner onLogout={signOut} />
+    </StoreProvider>
+  );
+}
+
+function PantallaSimple({ texto, children }) {
+  return (
+    <div style={{
+      minHeight: '100dvh', display: 'flex', flexDirection: 'column', gap: 16,
+      alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center',
+      background: 'var(--bg-pitch)',
+    }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 340, lineHeight: 1.6 }}>
+        {texto}
+      </p>
+      {children}
+    </div>
+  );
 }
 
 function AppInner({ onLogout }) {
   const state = useAppState();
+  const auth = useAuth();
   const { activeTab } = state.ui;
-  const { setActiveTab } = useUIActions();
+  const { setActiveTab, setSelectedDate } = useUIActions();
+  const canchas = useCanchas();
   const selectedDate = useSelectedDate();
   const toast = useToast();
 
@@ -75,6 +114,18 @@ function AppInner({ onLogout }) {
   const turnoFijoActions = useTurnoFijoActions();
 
   const rawBookingsToday = useBookingsForDate(selectedDate);
+  // Toda la semana de `selectedDate` — la usa la vista Semana de la Grilla.
+  // Como la semana SIEMPRE contiene a `selectedDate`, también sirve como
+  // fuente única para relocalizar en vivo el turno abierto en el modal de
+  // detalle (ver `liveBookingDetail` más abajo): antes buscaba solo en
+  // `bookings` (el día), así que un turno de otro día de la semana perdía la
+  // actualización en vivo al editarlo desde ahí.
+  const weekStart = startOfWeek(selectedDate);
+  const weekEnd = addDays(weekStart, 6);
+  const rawBookingsWeek = useMemo(
+    () => selectors.selectBookingsForRange(state, weekStart, weekEnd),
+    [state, weekStart, weekEnd]
+  );
   const rawClients = useClients();
 
   // ─── Capa de compatibilidad: GrillaTurnos/NuevoTurnoModal/DetalleTurnoModal
@@ -82,6 +133,7 @@ function AppInner({ onLogout }) {
   // al store) todavía esperan la forma vieja. Se elimina en la Fase 5. Ver
   // src/store/legacyAdapter.js.
   const bookings = useMemo(() => toLegacyBookings(state, rawBookingsToday), [state, rawBookingsToday]);
+  const bookingsWeek = useMemo(() => toLegacyBookings(state, rawBookingsWeek), [state, rawBookingsWeek]);
   const clients = useMemo(
     () =>
       rawClients.map((c) =>
@@ -96,18 +148,31 @@ function AppInner({ onLogout }) {
   );
 
   const [isNuevoTurnoOpen, setIsNuevoTurnoOpen] = useState(false);
-  const [modalSlot, setModalSlot] = useState({ canchaId: 'c1', time: '20:00' });
+  // Sin valores por defecto: el modal elige la primera cancha y el primer
+  // horario reales del complejo. Acá había un `'c1'` heredado de los datos de
+  // demostración — un id que en una cuenta real no existe, así que todo turno
+  // creado desde el botón "+ Turno" (en vez de desde un slot de la grilla)
+  // moría con un error de clave foránea.
+  const [modalSlot, setModalSlot] = useState({ canchaId: null, time: null });
   const [selectedBookingDetail, setSelectedBookingDetail] = useState(null);
 
   // `selectedBookingDetail` guarda solo la identidad (id) del turno abierto.
-  // El objeto que efectivamente se muestra se relee de `bookings` (que ya se
-  // recalcula en cada render con el estado actual) — así que saldar, cargar
-  // cantina o editar se ven reflejados en el modal sin tener que cerrarlo.
+  // El objeto que efectivamente se muestra se relee de `bookingsWeek` (que ya
+  // se recalcula en cada render con el estado actual) — así que saldar,
+  // cargar cantina o editar se ven reflejados en el modal sin tener que
+  // cerrarlo. Se busca en la semana entera (no solo `bookings`, el día) para
+  // que un turno abierto desde la vista Semana de la Grilla también se
+  // relea en vivo — la semana siempre contiene al día seleccionado.
   const liveBookingDetail = selectedBookingDetail
-    ? (bookings.find((b) => b.id === selectedBookingDetail.id) ?? selectedBookingDetail)
+    ? (bookingsWeek.find((b) => b.id === selectedBookingDetail.id) ?? selectedBookingDetail)
     : null;
 
-  const handleOpenNuevoTurnoWithSlot = (canchaId, time) => {
+  // `fecha` llega SIEMPRE explícita desde GrillaTurnos (día o semana). En la
+  // vista Semana puede no ser `selectedDate`: cambiar el día activo hace que
+  // `handleSaveBooking` (que arma el turno con `fecha: selectedDate`) guarde
+  // en el día correcto sin tocar esa función.
+  const handleOpenNuevoTurnoWithSlot = (canchaId, time, fecha = selectedDate) => {
+    if (fecha !== selectedDate) setSelectedDate(fecha);
     setModalSlot({ canchaId, time });
     setIsNuevoTurnoOpen(true);
   };
@@ -197,6 +262,24 @@ function AppInner({ onLogout }) {
     toast.info('Turno cancelado y liberado.');
   };
 
+  const handleConfirmBooking = () => {
+    const legacy = liveBookingDetail;
+    if (!legacy) return;
+    const res = bookingActions.confirmar(legacy._source.id);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success('Turno confirmado. Ya no vence.');
+  };
+
+  const handleValidatePayment = (_bookingId, pagoId) => {
+    const legacy = liveBookingDetail;
+    if (!legacy) return;
+    bookingActions.validarPago(legacy._source.id, pagoId, auth.session?.user?.id ?? null);
+    toast.success('Seña validada.');
+  };
+
   const handleAddCantinaToBooking = (_bookingId, legacyProduct) => {
     const legacy = liveBookingDetail;
     if (!legacy) return;
@@ -231,6 +314,29 @@ function AppInner({ onLogout }) {
     toast.success('Turno actualizado');
   };
 
+  // Un complejo sin canchas no tiene grilla que mostrar: lo primero es el alta.
+  if (canchas.length === 0) {
+    return auth.esDueno ? (
+      <>
+        <OnboardingWizard />
+        <ToastViewport />
+      </>
+    ) : (
+      <PantallaSimple texto="El complejo todavía no tiene canchas cargadas. Pedile al dueño que complete el alta.">
+        <button type="button" className="btn-secondary" onClick={onLogout} style={{ padding: '12px 20px' }}>
+          Cerrar sesión
+        </button>
+      </PantallaSimple>
+    );
+  }
+
+  // Si el dueño le saca un permiso a un empleado que justo estaba en esa
+  // sección, cae a la grilla en vez de quedarse mirando algo que ya no le
+  // corresponde. El gating real igual está en la base: esconder el tab es
+  // comodidad, no seguridad.
+  const tabActual = puedeVerTab(activeTab, auth) ? activeTab : 'grilla';
+  const navVisible = BOTTOM_NAV.filter((item) => puedeVerTab(item.id, auth));
+
   return (
     <div style={{ minHeight: '100dvh' }}>
 
@@ -238,7 +344,7 @@ function AppInner({ onLogout }) {
       <Navbar
         onOpenNuevoTurno={() => setIsNuevoTurnoOpen(true)}
         onOpenCantina={() => setActiveTab('cantina')}
-        activeTab={activeTab}
+        activeTab={tabActual}
         setActiveTab={setActiveTab}
         onLogout={onLogout}
       />
@@ -247,24 +353,26 @@ function AppInner({ onLogout }) {
       <div className="app-container">
 
         {/* Left Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Sidebar activeTab={tabActual} setActiveTab={setActiveTab} />
 
         {/* Main Content */}
-        <main className="app-main-content animate-enter" key={activeTab}>
-          {activeTab === 'grilla' && (
+        <main className="app-main-content animate-enter" key={tabActual}>
+          {tabActual === 'grilla' && (
             <GrillaTurnos
               bookings={bookings}
+              weekBookings={bookingsWeek}
               onOpenNuevoTurnoWithSlot={handleOpenNuevoTurnoWithSlot}
               onOpenBookingDetails={(b) => setSelectedBookingDetail(b)}
             />
           )}
-          {activeTab === 'turnos_fijos' && <TurnosFijos />}
-          {activeTab === 'cantina' && <CajaCantina />}
-          {activeTab === 'clientes' && (
+          {tabActual === 'turnos_fijos' && <TurnosFijos />}
+          {tabActual === 'cantina' && <CajaCantina />}
+          {tabActual === 'clientes' && (
             <ClientesCRM clients={clients} />
           )}
-          {activeTab === 'reportes' && <ReportesAnalytics />}
-          {activeTab === 'configuracion' && <ConfiguracionComplejo />}
+          {tabActual === 'reportes' && <ReportesAnalytics />}
+          {tabActual === 'configuracion' && <ConfiguracionComplejo />}
+          {tabActual === 'derivaciones' && <Derivaciones />}
           {/* Vista Pública / QR: movida a /reserva como página aparte (ver src/main.jsx) */}
           {/* {activeTab === 'vista_publica' && <VistaPublicaJugador />} */}
         </main>
@@ -272,9 +380,9 @@ function AppInner({ onLogout }) {
 
       {/* ─── Bottom Nav (Mobile only) ─── */}
       <nav className="bottom-nav">
-        {BOTTOM_NAV.map(item => {
+        {navVisible.map(item => {
           const Icon = item.icon;
-          const isActive = activeTab === item.id;
+          const isActive = tabActual === item.id;
           return (
             <button
               key={item.id}
@@ -314,6 +422,8 @@ function AppInner({ onLogout }) {
         onCancelBooking={handleCancelBooking}
         onAddCantinaToBooking={handleAddCantinaToBooking}
         onEditBooking={handleEditBooking}
+        onConfirmBooking={handleConfirmBooking}
+        onValidatePayment={handleValidatePayment}
       />
 
       <ToastViewport />

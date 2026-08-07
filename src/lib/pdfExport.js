@@ -114,7 +114,7 @@ export function exportCierreCajaPDF({ complejo, fecha, cierreCaja, pagosDelDia, 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text(`Generado con TuCan · ${formatLongDate(todayISO())} ${nowTime()}hs`, MARGIN, 820);
+  doc.text(`Generado con Set&gol · ${formatLongDate(todayISO())} ${nowTime()}hs`, MARGIN, 820);
 
   doc.save(`cierre-caja_${fecha}.pdf`);
 }
